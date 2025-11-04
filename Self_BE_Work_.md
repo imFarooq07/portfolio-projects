@@ -1,4 +1,4 @@
-# .NET Developer Interview Q&A - 8 Years Experience
+# .NET Developer - 8 Years Experience
 
 ## 📋 Table of Contents
 1. [C# Fundamentals](#c-fundamentals)
@@ -801,27 +801,6 @@ public class UserServiceTests
 - Security best practices
 - Team collaboration
 
----
+--- 
 
-## Quick Reference - Common Commands
-
-```bash
-# EF Core
-dotnet ef migrations add InitialCreate
-dotnet ef database update
-dotnet ef dbcontext scaffold
-
-# Build & Run
-dotnet build
-dotnet run
-dotnet test
-
-# NuGet
-dotnet add package PackageName
-dotnet restore
-```
-
----
-
-**Good Luck with your interview! 🚀**
 
