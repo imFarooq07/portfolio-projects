@@ -1751,52 +1751,6 @@ else
 
 ---
 
-## Example Scenarios
-
-### Scenario 1: Create Property - Only PropertyName Changed
-```
-Input:
-- AccommodationName: "Grand Hotel" ✅ (Translatable - Changed)
-- TimeZoneId: 1 (Non-translatable)
-- CurrencyId: 2 (Non-translatable)
-
-Decision: ✅ TRANSLATE (PropertyName has value)
-Action: Translate "Grand Hotel" and save to ML table
-```
-
-### Scenario 2: Update Property - Only TimeZone Changed
-```
-Input:
-- AccommodationName: "Grand Hotel" (No change)
-- TimeZoneId: 2 (Changed from 1) ❌ (Non-translatable)
-
-Decision: ❌ SKIP TRANSLATION (No translatable fields changed)
-Action: Update main table only, skip ML table translation
-```
-
-### Scenario 3: Update Property - PropertyName Changed
-```
-Input:
-- AccommodationName: "Grand Hotel Premium" ✅ (Changed from "Grand Hotel")
-- TimeZoneId: 1 (No change)
-
-Decision: ✅ TRANSLATE (PropertyName changed)
-Action: Translate "Grand Hotel Premium" and update ML table
-```
-
-### Scenario 4: Create Property - No Translatable Fields
-```
-Input:
-- AccommodationName: "" (Empty)
-- TimeZoneId: 1
-- CurrencyId: 2
-
-Decision: ❌ SKIP TRANSLATION (No translatable fields with values)
-Action: Save to main table only
-```
-
----
-
 ## Helper Methods Summary
 
 ```csharp
