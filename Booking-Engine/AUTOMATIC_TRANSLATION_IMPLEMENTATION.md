@@ -9,6 +9,7 @@ This guide provides the structure, architecture, and method signatures for imple
 - [Folder Structure](#folder-structure)
 - [Service Architecture](#service-architecture)
 - [Translation Field Mapping](#translation-field-mapping)
+- [Field Change Detection](#field-change-detection) ⭐ **NEW**
 - [Integration Points](#integration-points)
 - [Implementation Flow](#implementation-flow)
 
@@ -23,6 +24,7 @@ This guide provides the structure, architecture, and method signatures for imple
 3. **Other Languages**: Saved to `*_ML` tables (e.g., `Accommodations_ML`, `Rooms_ML`)
 4. **Selective Translation**: Only specific fields are translated per module
 5. **Property-level Toggle**: Translation only happens if admin enables it for a property
+6. **Conditional Translation**: ⭐ **Translation only runs when translatable fields are changed**
 
 ### Tables Structure
 
@@ -59,42 +61,10 @@ This guide provides the structure, architecture, and method signatures for imple
     },
     "LibreTranslate": {
       "ApiUrl": "http://localhost:5000/translate",
-      "ApiKey": "",  // Optional for self-hosted
+      "ApiKey": "",
       "RateLimitDelayMs": 100
     }
   }
-}
-```
-
-### TranslationSettings Model
-
-```csharp
-// V3BookingEngine/Models/TranslationSettings.cs
-namespace V3BookingEngine.Models
-{
-    public class TranslationSettings
-    {
-        public string Provider { get; set; } = "deepl"; // "deepl" or "libre"
-        public int DefaultLanguageId { get; set; } = 1;
-        public string DefaultLanguageCode { get; set; } = "en";
-        public bool AutoTranslateEnabled { get; set; } = true;
-        public bool EnableForProperty { get; set; } = false;
-    }
-
-    public class DeepLSettings
-    {
-        public string ApiKey { get; set; } = string.Empty;
-        public string ApiUrl { get; set; } = "https://api-free.deepl.com/v2/translate";
-        public bool UsePro { get; set; } = false;
-        public int RateLimitDelayMs { get; set; } = 200;
-    }
-
-    public class LibreTranslateSettings
-    {
-        public string ApiUrl { get; set; } = "http://localhost:5000/translate";
-        public string ApiKey { get; set; } = string.Empty;
-        public int RateLimitDelayMs { get; set; } = 100;
-    }
 }
 ```
 
@@ -106,367 +76,292 @@ namespace V3BookingEngine.Models
 V3BookingEngine/
 ├── Services/
 │   └── TranslationService/
-│       ├── ITranslationService.cs              # Main translation interface
-│       ├── TranslationServiceFactory.cs        # Factory to create provider instances
-│       ├── TranslationServiceBase.cs           # Base class with common logic
+│       ├── ITranslationService.cs
+│       ├── TranslationServiceFactory.cs
+│       ├── TranslationServiceBase.cs
 │       ├── Providers/
-│       │   ├── DeepLTranslationProvider.cs     # DeepL implementation
-│       │   ├── LibreTranslateProvider.cs       # LibreTranslate implementation
-│       │   └── ITranslationProvider.cs         # Provider interface
+│       │   ├── DeepLTranslationProvider.cs
+│       │   ├── LibreTranslateProvider.cs
+│       │   └── ITranslationProvider.cs
 │       ├── Models/
-│       │   ├── TranslationRequest.cs           # Request model
-│       │   ├── TranslationResponse.cs          # Response model
-│       │   └── TranslationResult.cs            # Result wrapper
-│       └── ServiceRegistration.cs              # DI registration
+│       │   ├── TranslationRequest.cs
+│       │   ├── TranslationResponse.cs
+│       │   └── TranslationResult.cs
+│       └── ServiceRegistration.cs
 │
 ├── Services/
 │   ├── PropertyService/
-│   │   └── PropertyTranslationHelper.cs       # Property-specific translation logic
+│   │   └── PropertyTranslationHelper.cs
 │   ├── RoomManagementService/
-│   │   └── RoomTranslationHelper.cs           # Room-specific translation logic
-│   ├── PolicyManagementService/
-│   │   └── PolicyTranslationHelper.cs         # Policy-specific translation logic
-│   └── PromotionManagementService/
-│       └── PromotionTranslationHelper.cs      # Promotion-specific translation logic
+│   │   └── RoomTranslationHelper.cs
+│   └── ...
 │
-├── Helpers/
-│   └── TranslationHelper.cs                    # Generic translation utilities
-│
-└── Models/
-    └── TranslationSettings.cs                  # Configuration models
-```
-
----
-
-## Service Architecture
-
-### 1. Main Translation Service Interface
-
-```csharp
-// V3BookingEngine/Services/TranslationService/ITranslationService.cs
-namespace V3BookingEngine.Services.TranslationService
-{
-    public interface ITranslationService
-    {
-        /// <summary>
-        /// Translates a single text from source language to target language
-        /// </summary>
-        Task<string> TranslateTextAsync(
-            string text, 
-            string sourceLanguageCode, 
-            string targetLanguageCode);
-
-        /// <summary>
-        /// Translates multiple texts in batch (more efficient)
-        /// </summary>
-        Task<Dictionary<string, string>> TranslateBatchAsync(
-            Dictionary<string, string> texts, 
-            string sourceLanguageCode, 
-            string targetLanguageCode);
-
-        /// <summary>
-        /// Checks if translation service is available
-        /// </summary>
-        Task<bool> IsServiceAvailableAsync();
-
-        /// <summary>
-        /// Gets the current provider name
-        /// </summary>
-        string GetProviderName();
-    }
-}
-```
-
-### 2. Translation Provider Interface
-
-```csharp
-// V3BookingEngine/Services/TranslationService/Providers/ITranslationProvider.cs
-namespace V3BookingEngine.Services.TranslationService.Providers
-{
-    public interface ITranslationProvider
-    {
-        Task<string> TranslateAsync(
-            string text, 
-            string sourceLanguageCode, 
-            string targetLanguageCode);
-
-        Task<Dictionary<string, string>> TranslateBatchAsync(
-            Dictionary<string, string> texts, 
-            string sourceLanguageCode, 
-            string targetLanguageCode);
-
-        Task<bool> IsAvailableAsync();
-        string ProviderName { get; }
-    }
-}
-```
-
-### 3. Translation Service Factory
-
-```csharp
-// V3BookingEngine/Services/TranslationService/TranslationServiceFactory.cs
-namespace V3BookingEngine.Services.TranslationService
-{
-    public class TranslationServiceFactory
-    {
-        public static ITranslationProvider CreateProvider(
-            string providerName,
-            IConfiguration configuration,
-            HttpClient httpClient,
-            ILogger logger)
-        {
-            return providerName.ToLower() switch
-            {
-                "deepl" => new DeepLTranslationProvider(configuration, httpClient, logger),
-                "libre" => new LibreTranslateProvider(configuration, httpClient, logger),
-                _ => throw new ArgumentException($"Unknown translation provider: {providerName}")
-            };
-        }
-    }
-}
-```
-
-### 4. DeepL Provider Implementation (Signature)
-
-```csharp
-// V3BookingEngine/Services/TranslationService/Providers/DeepLTranslationProvider.cs
-namespace V3BookingEngine.Services.TranslationService.Providers
-{
-    public class DeepLTranslationProvider : ITranslationProvider
-    {
-        private readonly DeepLSettings _settings;
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<DeepLTranslationProvider> _logger;
-
-        public string ProviderName => "DeepL";
-
-        public DeepLTranslationProvider(
-            IConfiguration configuration,
-            HttpClient httpClient,
-            ILogger<DeepLTranslationProvider> logger)
-        {
-            // Initialize from configuration
-        }
-
-        public async Task<string> TranslateAsync(
-            string text, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Implementation: Call DeepL API
-            // Return translated text
-        }
-
-        public async Task<Dictionary<string, string>> TranslateBatchAsync(
-            Dictionary<string, string> texts, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Implementation: Batch translate with rate limiting
-        }
-
-        public async Task<bool> IsAvailableAsync()
-        {
-            // Implementation: Health check
-        }
-    }
-}
-```
-
-### 5. LibreTranslate Provider Implementation (Signature)
-
-```csharp
-// V3BookingEngine/Services/TranslationService/Providers/LibreTranslateProvider.cs
-namespace V3BookingEngine.Services.TranslationService.Providers
-{
-    public class LibreTranslateProvider : ITranslationProvider
-    {
-        private readonly LibreTranslateSettings _settings;
-        private readonly HttpClient _httpClient;
-        private readonly ILogger<LibreTranslateProvider> _logger;
-
-        public string ProviderName => "LibreTranslate";
-
-        public LibreTranslateProvider(
-            IConfiguration configuration,
-            HttpClient httpClient,
-            ILogger<LibreTranslateProvider> logger)
-        {
-            // Initialize from configuration
-        }
-
-        public async Task<string> TranslateAsync(
-            string text, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Implementation: Call LibreTranslate API
-        }
-
-        public async Task<Dictionary<string, string>> TranslateBatchAsync(
-            Dictionary<string, string> texts, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Implementation: Batch translate
-        }
-
-        public async Task<bool> IsAvailableAsync()
-        {
-            // Implementation: Health check
-        }
-    }
-}
-```
-
-### 6. Main Translation Service Implementation
-
-```csharp
-// V3BookingEngine/Services/TranslationService/TranslationService.cs
-namespace V3BookingEngine.Services.TranslationService
-{
-    public class TranslationService : ITranslationService
-    {
-        private readonly ITranslationProvider _provider;
-        private readonly TranslationSettings _settings;
-        private readonly ILogger<TranslationService> _logger;
-
-        public TranslationService(
-            IConfiguration configuration,
-            TranslationServiceFactory factory,
-            HttpClient httpClient,
-            ILogger<TranslationService> logger)
-        {
-            _settings = configuration.GetSection("TranslationSettings")
-                .Get<TranslationSettings>() ?? new TranslationSettings();
-            
-            _provider = factory.CreateProvider(
-                _settings.Provider,
-                configuration,
-                httpClient,
-                logger);
-            
-            _logger = logger;
-        }
-
-        public async Task<string> TranslateTextAsync(
-            string text, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Validate input
-            // Call provider
-            // Handle errors
-            // Return translated text
-        }
-
-        public async Task<Dictionary<string, string>> TranslateBatchAsync(
-            Dictionary<string, string> texts, 
-            string sourceLanguageCode, 
-            string targetLanguageCode)
-        {
-            // Batch translation logic
-        }
-
-        public async Task<bool> IsServiceAvailableAsync()
-        {
-            return await _provider.IsAvailableAsync();
-        }
-
-        public string GetProviderName()
-        {
-            return _provider.ProviderName;
-        }
-    }
-}
+└── Helpers/
+    └── TranslationHelper.cs
 ```
 
 ---
 
 ## Translation Field Mapping
 
-### Property Module
+### Property Module - Translatable Fields
 
-#### CreateProperty
-- **Field**: `AccommodationName`
-- **Source Table**: `Accommodations` (if LanguageId = 1)
-- **Target Table**: `Accommodations_ML` (if LanguageId != 1)
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Property Name | `AccommodationName` | ✅ YES |
+| Property Type | `AccommodationTypeId` | ❌ NO |
+| Property Category | `PropertyCategory` | ❌ NO |
+| Time Zone | `TimeZoneId` | ❌ NO |
+| Country | `Country` | ❌ NO |
+| City | `AddressId` | ❌ NO |
+| Post Code | `PostCode` | ❌ NO |
+| Currency | `CurrencyId` | ❌ NO |
+| Contact Number | `ContactNo` | ❌ NO |
+| Email | `EmailId` | ❌ NO |
+| Latitude | `Latitude` | ❌ NO |
+| Longitude | `Longitude` | ❌ NO |
+| Web Search | `WebSearch` | ❌ NO |
+| Home Shopping | `HomeShopping` | ❌ NO |
 
-#### AdditionalDetail
-- **Fields**: 
-  - `KeyCollectionComments`
-  - `PetsAllowedComments`
-- **Source Table**: `Accommodations` or `Accommodations_ML`
-- **Target Table**: `Accommodations_ML`
+### Additional Detail Module - Translatable Fields
 
-#### PropertyFacilities
-- **Fields**:
-  - `Property Group` (from lookup table)
-  - `Property Facilities` (from lookup table)
-- **Source Table**: Facility lookup tables
-- **Target Table**: `Facilities_ML` or `PropertyFacilities_ML`
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Key Collection Comments | `KeyCollectionComments` | ✅ YES |
+| Pets Allowed Comments | `PetsAllowedComments` | ✅ YES |
 
-#### CreateAddon
-- **Fields**:
-  - `AddonName`
-  - `ShortDescription`
-  - `CancellationPolicy`
-  - `GuaranteePolicy`
-  - `LongDescription`
-- **Source Table**: `Addons` (if LanguageId = 1)
-- **Target Table**: `Addons_ML` (if LanguageId != 1)
+### Addon Module - Translatable Fields
 
-### Room Module
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Addon Name | `AddonName` | ✅ YES |
+| Short Description | `ShortDescription` | ✅ YES |
+| Cancellation Policy | `CancellationPolicy` | ✅ YES |
+| Guarantee Policy | `GuaranteePolicy` | ✅ YES |
+| Long Description | `LongDescription` | ✅ YES |
 
-#### CreateRoom
-- **Fields**:
-  - `RoomName`
-  - `RoomDescription`
-- **Source Table**: `Rooms` (if LanguageId = 1)
-- **Target Table**: `Rooms_ML` (if LanguageId != 1)
+### Room Module - Translatable Fields
 
-#### RoomFacilities
-- **Fields**:
-  - `Room Group` (from lookup table)
-  - `Room Facilities` (from lookup table)
-- **Source Table**: Facility lookup tables
-- **Target Table**: `RoomFacilities_ML`
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Room Name | `RoomName` | ✅ YES |
+| Room Description | `RoomDescription` | ✅ YES |
 
-#### CreateRatePlan
-- **Fields**:
-  - `RatePlanName`
-  - `DisplayRatePlanName`
-  - `Included`
-  - `Highlight`
-  - `MealDescription`
-- **Source Table**: `RatePlans` (if LanguageId = 1)
-- **Target Table**: `RatePlans_ML` (if LanguageId != 1)
+### Rate Plan Module - Translatable Fields
 
-### Policy Module
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Rate Plan Name | `RatePlanName` | ✅ YES |
+| Display Rate Plan Name | `DisplayRatePlanName` | ✅ YES |
+| Included | `Included` | ✅ YES |
+| Highlight | `Highlight` | ✅ YES |
+| Meal Description | `MealDescription` | ✅ YES |
 
-#### CreatePolicy
-- **Fields**:
-  - `PolicyName`
-  - `CancellationPolicyDescription`
-  - `BookingPolicyDescription`
-  - `NoShowPolicyDescription`
-- **Source Table**: `Policies` (if LanguageId = 1)
-- **Target Table**: `Policies_ML` (if LanguageId != 1)
+### Policy Module - Translatable Fields
 
-### Promotion Module
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Policy Name | `PolicyName` | ✅ YES |
+| Cancellation Policy Description | `CancellationPolicyDescription` | ✅ YES |
+| Booking Policy Description | `BookingPolicyDescription` | ✅ YES |
+| No-Show Policy Description | `NoShowPolicyDescription` | ✅ YES |
 
-#### CreatePromotion
-- **Fields**:
-  - `PromotionName`
-  - `Description`
-- **Source Table**: `Promotions` (if LanguageId = 1)
-- **Target Table**: `Promotions_ML` (if LanguageId != 1)
+### Promotion Module - Translatable Fields
+
+| Field Name | Model Property | Translatable |
+|------------|---------------|-------------|
+| Promotion Name | `PromotionName` | ✅ YES |
+| Description | `Description` | ✅ YES |
 
 ---
 
-## Integration Points
+## Field Change Detection ⭐
 
-### 1. Property Translation Helper
+### Overview
+
+Translation should **ONLY** run when translatable fields are changed. If only non-translatable fields (like `TimeZoneId`, `CurrencyId`, etc.) are modified, translation should **NOT** run.
+
+### Implementation Strategy
+
+#### 1. Field Change Detection Helper
+
+```csharp
+// V3BookingEngine/Helpers/FieldChangeDetector.cs
+namespace V3BookingEngine.Helpers
+{
+    public static class FieldChangeDetector
+    {
+        /// <summary>
+        /// Checks if any translatable fields have changed
+        /// </summary>
+        public static bool HasTranslatableFieldsChanged<T>(
+            T newModel, 
+            T oldModel, 
+            List<string> translatableFields) where T : class
+        {
+            if (oldModel == null) return true; // New record, translate if fields have values
+            
+            foreach (var fieldName in translatableFields)
+            {
+                var newValue = GetPropertyValue(newModel, fieldName);
+                var oldValue = GetPropertyValue(oldModel, fieldName);
+                
+                if (!AreEqual(newValue, oldValue))
+                {
+                    return true; // Field changed
+                }
+            }
+            
+            return false; // No translatable fields changed
+        }
+
+        /// <summary>
+        /// Gets list of changed translatable fields
+        /// </summary>
+        public static List<string> GetChangedTranslatableFields<T>(
+            T newModel, 
+            T oldModel, 
+            List<string> translatableFields) where T : class
+        {
+            var changedFields = new List<string>();
+            
+            if (oldModel == null) 
+            {
+                // New record - return all fields that have values
+                foreach (var fieldName in translatableFields)
+                {
+                    var value = GetPropertyValue(newModel, fieldName);
+                    if (!string.IsNullOrWhiteSpace(value?.ToString()))
+                    {
+                        changedFields.Add(fieldName);
+                    }
+                }
+                return changedFields;
+            }
+            
+            foreach (var fieldName in translatableFields)
+            {
+                var newValue = GetPropertyValue(newModel, fieldName);
+                var oldValue = GetPropertyValue(oldModel, fieldName);
+                
+                if (!AreEqual(newValue, oldValue))
+                {
+                    changedFields.Add(fieldName);
+                }
+            }
+            
+            return changedFields;
+        }
+
+        private static object? GetPropertyValue<T>(T obj, string propertyName) where T : class
+        {
+            var property = typeof(T).GetProperty(propertyName);
+            return property?.GetValue(obj);
+        }
+
+        private static bool AreEqual(object? value1, object? value2)
+        {
+            if (value1 == null && value2 == null) return true;
+            if (value1 == null || value2 == null) return false;
+            
+            // Handle string comparison (trim whitespace)
+            if (value1 is string str1 && value2 is string str2)
+            {
+                return str1.Trim().Equals(str2.Trim(), StringComparison.OrdinalIgnoreCase);
+            }
+            
+            return value1.Equals(value2);
+        }
+    }
+}
+```
+
+#### 2. Translatable Fields Configuration
+
+```csharp
+// V3BookingEngine/Helpers/TranslatableFieldsConfig.cs
+namespace V3BookingEngine.Helpers
+{
+    public static class TranslatableFieldsConfig
+    {
+        // Property Module
+        public static readonly List<string> PropertyTranslatableFields = new()
+        {
+            "AccommodationName"
+        };
+
+        // Additional Detail Module
+        public static readonly List<string> AdditionalDetailTranslatableFields = new()
+        {
+            "KeyCollectionComments",
+            "PetsAllowedComments"
+        };
+
+        // Addon Module (AddonFormModel)
+        public static readonly List<string> AddonTranslatableFields = new()
+        {
+            "ActivityName",  // Addon Name
+            "ShortDescription",
+            "CancellationPolicy",
+            "GuaranteePolicy",
+            "LongDescription"
+        };
+
+        // Room Module (CreateRoomFormModel)
+        public static readonly List<string> RoomTranslatableFields = new()
+        {
+            "RoomName",
+            "RoomDescription"
+        };
+
+        // Rate Plan Module (UpdateRatePlanFormModel / CreateRatePlanFormModel)
+        public static readonly List<string> RatePlanTranslatableFields = new()
+        {
+            "RatePlanName",
+            "DisplayRatePlanName",
+            "Included",
+            "Highlight",
+            "MealDescription"
+        };
+
+        // Policy Module (CreatePolicyViewModel)
+        public static readonly List<string> PolicyTranslatableFields = new()
+        {
+            "PolicyName",
+            "CancellationPolicyDescription",
+            "BookingPolicyDescription",
+            "NoShowPolicyDescription"
+        };
+
+        // Promotion Module (CreatePromotionFormModel)
+        public static readonly List<string> PromotionTranslatableFields = new()
+        {
+            "PromotionName",
+            "Description"
+        };
+
+        // Property Facilities Module (AddGroupFacilityModel)
+        public static readonly List<string> PropertyFacilitiesTranslatableFields = new()
+        {
+            "GroupName",
+            "FacilityName",
+            "OtherGroupName",
+            "OtherFacilityName"
+        };
+
+        // Room Facilities Module (AddGroupFacilityModel)
+        public static readonly List<string> RoomFacilitiesTranslatableFields = new()
+        {
+            "GroupName",
+            "FacilityName",
+            "OtherGroupName",
+            "OtherFacilityName"
+        };
+    }
+}
+```
+
+#### 3. Updated Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/PropertyService/PropertyTranslationHelper.cs
@@ -476,14 +371,33 @@ namespace V3BookingEngine.Services.PropertyService
     {
         private readonly ITranslationService _translationService;
         private readonly ILanguageService _languageService;
-        private readonly IConfiguration _configuration;
+        private readonly IPropertyManagementService _propertyService;
 
-        public PropertyTranslationHelper(
-            ITranslationService translationService,
-            ILanguageService languageService,
-            IConfiguration configuration)
+        /// <summary>
+        /// Translates property fields ONLY if translatable fields changed
+        /// </summary>
+        public async Task<bool> ShouldTranslatePropertyAsync(
+            CreatePropertyViewModel newModel,
+            CreatePropertyViewModel? oldModel,
+            int accommodationId = 0)
         {
-            // Initialize
+            // Check if translation is enabled for this property
+            if (accommodationId > 0)
+            {
+                var isEnabled = await TranslationHelper.IsTranslationEnabledForPropertyAsync(
+                    accommodationId, 
+                    _propertyService.GetConnection());
+                if (!isEnabled) return false;
+            }
+
+            // Check if any translatable fields changed
+            var hasChanged = FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.PropertyTranslatableFields
+            );
+
+            return hasChanged;
         }
 
         /// <summary>
@@ -493,42 +407,229 @@ namespace V3BookingEngine.Services.PropertyService
             CreatePropertyViewModel sourceModel,
             int sourceLanguageId,
             int targetLanguageId,
-            int accommodationId = 0)
+            int accommodationId = 0,
+            CreatePropertyViewModel? oldModel = null)
         {
-            // Check if translation is enabled for this property
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (accommodationId > 0 && oldModel != null)
+            {
+                var shouldTranslate = await ShouldTranslatePropertyAsync(sourceModel, oldModel, accommodationId);
+                if (!shouldTranslate)
+                {
+                    // No translatable fields changed, return original model
+                    return sourceModel;
+                }
+            }
+
             // Get source and target language codes
-            // Translate AccommodationName
-            // Return translated model
-        }
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
 
-        /// <summary>
-        /// Translates additional detail fields
-        /// </summary>
-        public async Task<AdditionalDetailsViewModel> TranslateAdditionalDetailsAsync(
-            AdditionalDetailsViewModel sourceModel,
-            int sourceLanguageId,
-            int targetLanguageId,
-            int accommodationId)
-        {
-            // Translate KeyCollectionComments, PetsAllowedComments
-        }
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel; // Can't translate without language info
+            }
 
-        /// <summary>
-        /// Translates addon fields
-        /// </summary>
-        public async Task<AddonViewModel> TranslateAddonAsync(
-            AddonViewModel sourceModel,
-            int sourceLanguageId,
-            int targetLanguageId,
-            int addonId = 0)
-        {
-            // Translate AddonName, ShortDescription, CancellationPolicy, etc.
+            // Get changed fields only
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.PropertyTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("AccommodationName") && 
+                !string.IsNullOrWhiteSpace(sourceModel.AccommodationName))
+            {
+                sourceModel.AccommodationName = await _translationService.TranslateTextAsync(
+                    sourceModel.AccommodationName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
         }
     }
 }
 ```
 
-### 2. Room Translation Helper
+---
+
+## Service Architecture
+
+### Main Translation Service Interface
+
+```csharp
+// V3BookingEngine/Services/TranslationService/ITranslationService.cs
+namespace V3BookingEngine.Services.TranslationService
+{
+    public interface ITranslationService
+    {
+        Task<string> TranslateTextAsync(
+            string text, 
+            string sourceLanguageCode, 
+            string targetLanguageCode);
+
+        Task<Dictionary<string, string>> TranslateBatchAsync(
+            Dictionary<string, string> texts, 
+            string sourceLanguageCode, 
+            string targetLanguageCode);
+
+        Task<bool> IsServiceAvailableAsync();
+        string GetProviderName();
+    }
+}
+```
+
+---
+
+## Integration Points
+
+### Updated Property Management Service
+
+```csharp
+// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+
+// Existing method - keep as is for backward compatibility
+public async Task<string> CreatePropertyAsync(
+    CreatePropertyViewModel model, 
+    int ownerId, 
+    int languageId)
+
+// NEW: Method with translation support and change detection
+public async Task<string> CreatePropertyWithTranslationAsync(
+    CreatePropertyViewModel model,
+    int ownerId,
+    int sourceLanguageId,
+    int targetLanguageId,
+    bool autoTranslate = false)
+{
+    try
+    {
+        // 1. Save to main table if sourceLanguageId = 1 (default/English)
+        if (sourceLanguageId == 1)
+        {
+            var result = await CreatePropertyAsync(model, ownerId, sourceLanguageId);
+            if (string.IsNullOrEmpty(result) || result == "Failure")
+            {
+                return result;
+            }
+            
+            // Extract accommodation ID from result if possible
+            var accommodationId = ExtractAccommodationId(result);
+            
+            // 2. If targetLanguageId != 1 and autoTranslate = true:
+            if (targetLanguageId != 1 && autoTranslate && accommodationId > 0)
+            {
+                // ⭐ CHECK: Only translate if translatable fields have values
+                var hasTranslatableFields = HasTranslatableFields(model, 
+                    TranslatableFieldsConfig.PropertyTranslatableFields);
+                
+                if (hasTranslatableFields)
+                {
+                    // Translate and save to ML table
+                    var translatedModel = await _propertyTranslationHelper.TranslatePropertyAsync(
+                        model,
+                        sourceLanguageId,
+                        targetLanguageId,
+                        accommodationId
+                    );
+                    
+                    await SavePropertyTranslationAsync(accommodationId, translatedModel, targetLanguageId);
+                }
+            }
+            
+            return result;
+        }
+        else
+        {
+            // Save directly to ML table (non-default language)
+            return await SavePropertyTranslationAsync(0, model, sourceLanguageId);
+        }
+    }
+    catch (Exception ex)
+    {
+        // Log error
+        return "Failure";
+    }
+}
+
+// NEW: Update method with change detection
+public async Task<string> UpdatePropertyWithTranslationAsync(
+    CreatePropertyViewModel newModel,
+    int accommodationId,
+    int ownerId,
+    int sourceLanguageId,
+    int targetLanguageId,
+    bool autoTranslate = false)
+{
+    try
+    {
+        // 1. Get existing property data
+        var oldModel = await GetPropertyByIdAsync(accommodationId, sourceLanguageId);
+        
+        // 2. Update main table if sourceLanguageId = 1
+        if (sourceLanguageId == 1)
+        {
+            var result = await UpdatePropertyAsync(newModel, accommodationId, ownerId, sourceLanguageId);
+            if (string.IsNullOrEmpty(result) || result == "Failure")
+            {
+                return result;
+            }
+        }
+        
+        // 3. ⭐ CHECK: Only translate if translatable fields changed
+        if (targetLanguageId != 1 && autoTranslate)
+        {
+            var shouldTranslate = await _propertyTranslationHelper.ShouldTranslatePropertyAsync(
+                newModel,
+                oldModel,
+                accommodationId
+            );
+            
+            if (shouldTranslate)
+            {
+                // Translate only changed fields
+                var translatedModel = await _propertyTranslationHelper.TranslatePropertyAsync(
+                    newModel,
+                    sourceLanguageId,
+                    targetLanguageId,
+                    accommodationId,
+                    oldModel
+                );
+                
+                await SavePropertyTranslationAsync(accommodationId, translatedModel, targetLanguageId);
+            }
+        }
+        
+        return "Success";
+    }
+    catch (Exception ex)
+    {
+        // Log error
+        return "Failure";
+    }
+}
+
+// Helper method to check if model has translatable fields with values
+private bool HasTranslatableFields<T>(T model, List<string> translatableFields) where T : class
+{
+    foreach (var fieldName in translatableFields)
+    {
+        var property = typeof(T).GetProperty(fieldName);
+        var value = property?.GetValue(model);
+        
+        if (value is string str && !string.IsNullOrWhiteSpace(str))
+        {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+### 4. Room Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/RoomManagementService/RoomTranslationHelper.cs
@@ -540,33 +641,299 @@ namespace V3BookingEngine.Services.RoomManagementService
         private readonly ILanguageService _languageService;
 
         /// <summary>
-        /// Translates room fields
+        /// Checks if translatable fields changed for Room
         /// </summary>
-        public async Task<CreateRoomViewModel> TranslateRoomAsync(
-            CreateRoomViewModel sourceModel,
-            int sourceLanguageId,
-            int targetLanguageId,
-            int roomId = 0)
+        public bool ShouldTranslateRoom(
+            CreateRoomFormModel newModel,
+            CreateRoomFormModel? oldModel)
         {
-            // Translate RoomName, RoomDescription
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.RoomTranslatableFields
+            );
         }
 
         /// <summary>
-        /// Translates rate plan fields
+        /// Translates room fields ONLY if translatable fields changed
         /// </summary>
-        public async Task<RatePlanViewModel> TranslateRatePlanAsync(
-            RatePlanViewModel sourceModel,
+        public async Task<CreateRoomFormModel> TranslateRoomAsync(
+            CreateRoomFormModel sourceModel,
             int sourceLanguageId,
             int targetLanguageId,
-            int ratePlanId = 0)
+            CreateRoomFormModel? oldModel = null)
         {
-            // Translate RatePlanName, DisplayRatePlanName, Included, Highlight, MealDescription
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslateRoom(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel; // No translatable fields changed
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            // Get changed fields only
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.RoomTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("RoomName") && !string.IsNullOrWhiteSpace(sourceModel.RoomName))
+            {
+                sourceModel.RoomName = await _translationService.TranslateTextAsync(
+                    sourceModel.RoomName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("RoomDescription") && !string.IsNullOrWhiteSpace(sourceModel.RoomDescription))
+            {
+                sourceModel.RoomDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.RoomDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
         }
     }
 }
 ```
 
-### 3. Policy Translation Helper
+### 5. Rate Plan Translation Helper with Change Detection
+
+```csharp
+// V3BookingEngine/Services/RoomManagementService/RatePlanTranslationHelper.cs
+namespace V3BookingEngine.Services.RoomManagementService
+{
+    public class RatePlanTranslationHelper
+    {
+        private readonly ITranslationService _translationService;
+        private readonly ILanguageService _languageService;
+
+        /// <summary>
+        /// Checks if translatable fields changed for Rate Plan
+        /// </summary>
+        public bool ShouldTranslateRatePlan(
+            UpdateRatePlanFormModel newModel,
+            UpdateRatePlanFormModel? oldModel)
+        {
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.RatePlanTranslatableFields
+            );
+        }
+
+        /// <summary>
+        /// Translates rate plan fields ONLY if translatable fields changed
+        /// </summary>
+        public async Task<UpdateRatePlanFormModel> TranslateRatePlanAsync(
+            UpdateRatePlanFormModel sourceModel,
+            int sourceLanguageId,
+            int targetLanguageId,
+            UpdateRatePlanFormModel? oldModel = null)
+        {
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslateRatePlan(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.RatePlanTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("RatePlanName") && !string.IsNullOrWhiteSpace(sourceModel.RatePlanName))
+            {
+                sourceModel.RatePlanName = await _translationService.TranslateTextAsync(
+                    sourceModel.RatePlanName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("DisplayRatePlanName") && !string.IsNullOrWhiteSpace(sourceModel.DisplayRatePlanName))
+            {
+                sourceModel.DisplayRatePlanName = await _translationService.TranslateTextAsync(
+                    sourceModel.DisplayRatePlanName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("Included") && !string.IsNullOrWhiteSpace(sourceModel.Included))
+            {
+                sourceModel.Included = await _translationService.TranslateTextAsync(
+                    sourceModel.Included,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("Highlight") && !string.IsNullOrWhiteSpace(sourceModel.Highlight))
+            {
+                sourceModel.Highlight = await _translationService.TranslateTextAsync(
+                    sourceModel.Highlight,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("MealDescription") && !string.IsNullOrWhiteSpace(sourceModel.MealDescription))
+            {
+                sourceModel.MealDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.MealDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
+        }
+    }
+}
+```
+
+### 6. Addon Translation Helper with Change Detection
+
+```csharp
+// V3BookingEngine/Services/PropertyService/AddonTranslationHelper.cs
+namespace V3BookingEngine.Services.PropertyService
+{
+    public class AddonTranslationHelper
+    {
+        private readonly ITranslationService _translationService;
+        private readonly ILanguageService _languageService;
+
+        /// <summary>
+        /// Checks if translatable fields changed for Addon
+        /// </summary>
+        public bool ShouldTranslateAddon(
+            AddonFormModel newModel,
+            AddonFormModel? oldModel)
+        {
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.AddonTranslatableFields
+            );
+        }
+
+        /// <summary>
+        /// Translates addon fields ONLY if translatable fields changed
+        /// </summary>
+        public async Task<AddonFormModel> TranslateAddonAsync(
+            AddonFormModel sourceModel,
+            int sourceLanguageId,
+            int targetLanguageId,
+            AddonFormModel? oldModel = null)
+        {
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslateAddon(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.AddonTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("ActivityName") && !string.IsNullOrWhiteSpace(sourceModel.ActivityName))
+            {
+                sourceModel.ActivityName = await _translationService.TranslateTextAsync(
+                    sourceModel.ActivityName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("ShortDescription") && !string.IsNullOrWhiteSpace(sourceModel.ShortDescription))
+            {
+                sourceModel.ShortDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.ShortDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("LongDescription") && !string.IsNullOrWhiteSpace(sourceModel.LongDescription))
+            {
+                sourceModel.LongDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.LongDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("CancellationPolicy") && !string.IsNullOrWhiteSpace(sourceModel.CancellationPolicy))
+            {
+                sourceModel.CancellationPolicy = await _translationService.TranslateTextAsync(
+                    sourceModel.CancellationPolicy,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("GuaranteePolicy") && !string.IsNullOrWhiteSpace(sourceModel.GuaranteePolicy))
+            {
+                sourceModel.GuaranteePolicy = await _translationService.TranslateTextAsync(
+                    sourceModel.GuaranteePolicy,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
+        }
+    }
+}
+```
+
+### 7. Policy Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/PolicyManagementService/PolicyTranslationHelper.cs
@@ -578,21 +945,96 @@ namespace V3BookingEngine.Services.PolicyManagementService
         private readonly ILanguageService _languageService;
 
         /// <summary>
-        /// Translates policy fields
+        /// Checks if translatable fields changed for Policy
+        /// </summary>
+        public bool ShouldTranslatePolicy(
+            CreatePolicyViewModel newModel,
+            CreatePolicyViewModel? oldModel)
+        {
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.PolicyTranslatableFields
+            );
+        }
+
+        /// <summary>
+        /// Translates policy fields ONLY if translatable fields changed
         /// </summary>
         public async Task<CreatePolicyViewModel> TranslatePolicyAsync(
             CreatePolicyViewModel sourceModel,
             int sourceLanguageId,
             int targetLanguageId,
-            int policyId = 0)
+            CreatePolicyViewModel? oldModel = null)
         {
-            // Translate PolicyName, CancellationPolicyDescription, etc.
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslatePolicy(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.PolicyTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("PolicyName") && !string.IsNullOrWhiteSpace(sourceModel.PolicyName))
+            {
+                sourceModel.PolicyName = await _translationService.TranslateTextAsync(
+                    sourceModel.PolicyName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("CancellationPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.CancellationPolicyDescription))
+            {
+                sourceModel.CancellationPolicyDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.CancellationPolicyDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("BookingPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.BookingPolicyDescription))
+            {
+                sourceModel.BookingPolicyDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.BookingPolicyDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("NoShowPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.NoShowPolicyDescription))
+            {
+                sourceModel.NoShowPolicyDescription = await _translationService.TranslateTextAsync(
+                    sourceModel.NoShowPolicyDescription,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
         }
     }
 }
 ```
 
-### 4. Promotion Translation Helper
+### 8. Promotion Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/PromotionManagementService/PromotionTranslationHelper.cs
@@ -604,64 +1046,407 @@ namespace V3BookingEngine.Services.PromotionManagementService
         private readonly ILanguageService _languageService;
 
         /// <summary>
-        /// Translates promotion fields
+        /// Checks if translatable fields changed for Promotion
         /// </summary>
-        public async Task<CreatePromotionViewModel> TranslatePromotionAsync(
-            CreatePromotionViewModel sourceModel,
+        public bool ShouldTranslatePromotion(
+            CreatePromotionFormModel newModel,
+            CreatePromotionFormModel? oldModel)
+        {
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.PromotionTranslatableFields
+            );
+        }
+
+        /// <summary>
+        /// Translates promotion fields ONLY if translatable fields changed
+        /// </summary>
+        public async Task<CreatePromotionFormModel> TranslatePromotionAsync(
+            CreatePromotionFormModel sourceModel,
             int sourceLanguageId,
             int targetLanguageId,
-            int promotionId = 0)
+            CreatePromotionFormModel? oldModel = null)
         {
-            // Translate PromotionName, Description
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslatePromotion(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.PromotionTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("PromotionName") && !string.IsNullOrWhiteSpace(sourceModel.PromotionName))
+            {
+                sourceModel.PromotionName = await _translationService.TranslateTextAsync(
+                    sourceModel.PromotionName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("Description") && !string.IsNullOrWhiteSpace(sourceModel.Description))
+            {
+                sourceModel.Description = await _translationService.TranslateTextAsync(
+                    sourceModel.Description,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
         }
     }
 }
 ```
 
-### 5. Generic Translation Helper
+### 9. Property Facilities Translation Helper with Change Detection
 
 ```csharp
-// V3BookingEngine/Helpers/TranslationHelper.cs
-namespace V3BookingEngine.Helpers
+// V3BookingEngine/Services/PropertyService/PropertyFacilitiesTranslationHelper.cs
+namespace V3BookingEngine.Services.PropertyService
 {
-    public static class TranslationHelper
+    public class PropertyFacilitiesTranslationHelper
     {
+        private readonly ITranslationService _translationService;
+        private readonly ILanguageService _languageService;
+
         /// <summary>
-        /// Determines if data should be saved to ML table or main table
+        /// Checks if translatable fields changed for Property Facilities
         /// </summary>
-        public static bool ShouldSaveToMLTable(int languageId, int defaultLanguageId = 1)
+        public bool ShouldTranslatePropertyFacilities(
+            AddGroupFacilityModel newModel,
+            AddGroupFacilityModel? oldModel)
         {
-            return languageId != defaultLanguageId;
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.PropertyFacilitiesTranslatableFields
+            );
         }
 
         /// <summary>
-        /// Checks if translation is enabled for a property
+        /// Translates property facilities fields ONLY if translatable fields changed
         /// </summary>
-        public static async Task<bool> IsTranslationEnabledForPropertyAsync(
-            int accommodationId,
-            IDbConnection connection)
+        public async Task<AddGroupFacilityModel> TranslatePropertyFacilitiesAsync(
+            AddGroupFacilityModel sourceModel,
+            int sourceLanguageId,
+            int targetLanguageId,
+            AddGroupFacilityModel? oldModel = null)
         {
-            // Query Accommodations table for AutoTranslateEnabled flag
-            // Return true/false
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslatePropertyFacilities(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.PropertyFacilitiesTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("GroupName") && !string.IsNullOrWhiteSpace(sourceModel.GroupName))
+            {
+                sourceModel.GroupName = await _translationService.TranslateTextAsync(
+                    sourceModel.GroupName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("FacilityName") && !string.IsNullOrWhiteSpace(sourceModel.FacilityName))
+            {
+                sourceModel.FacilityName = await _translationService.TranslateTextAsync(
+                    sourceModel.FacilityName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("OtherGroupName") && !string.IsNullOrWhiteSpace(sourceModel.OtherGroupName))
+            {
+                sourceModel.OtherGroupName = await _translationService.TranslateTextAsync(
+                    sourceModel.OtherGroupName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("OtherFacilityName") && !string.IsNullOrWhiteSpace(sourceModel.OtherFacilityName))
+            {
+                sourceModel.OtherFacilityName = await _translationService.TranslateTextAsync(
+                    sourceModel.OtherFacilityName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
+        }
+    }
+}
+```
+
+### 10. Room Facilities Translation Helper with Change Detection
+
+```csharp
+// V3BookingEngine/Services/RoomManagementService/RoomFacilitiesTranslationHelper.cs
+namespace V3BookingEngine.Services.RoomManagementService
+{
+    public class RoomFacilitiesTranslationHelper
+    {
+        private readonly ITranslationService _translationService;
+        private readonly ILanguageService _languageService;
+
+        /// <summary>
+        /// Checks if translatable fields changed for Room Facilities
+        /// </summary>
+        public bool ShouldTranslateRoomFacilities(
+            AddGroupFacilityModel newModel,
+            AddGroupFacilityModel? oldModel)
+        {
+            return FieldChangeDetector.HasTranslatableFieldsChanged(
+                newModel,
+                oldModel,
+                TranslatableFieldsConfig.RoomFacilitiesTranslatableFields
+            );
         }
 
         /// <summary>
-        /// Gets language code from language ID
+        /// Translates room facilities fields ONLY if translatable fields changed
         /// </summary>
-        public static async Task<string> GetLanguageCodeAsync(
-            int languageId,
-            ILanguageService languageService)
+        public async Task<AddGroupFacilityModel> TranslateRoomFacilitiesAsync(
+            AddGroupFacilityModel sourceModel,
+            int sourceLanguageId,
+            int targetLanguageId,
+            AddGroupFacilityModel? oldModel = null)
         {
-            var language = await languageService.GetLanguageByIdAsync(languageId);
-            return language?.LanguageCode ?? "en";
+            // ⭐ CHECK: Only translate if translatable fields changed
+            if (oldModel != null)
+            {
+                var shouldTranslate = ShouldTranslateRoomFacilities(sourceModel, oldModel);
+                if (!shouldTranslate)
+                {
+                    return sourceModel;
+                }
+            }
+
+            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
+            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
+
+            if (sourceLang == null || targetLang == null)
+            {
+                return sourceModel;
+            }
+
+            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
+                sourceModel,
+                oldModel,
+                TranslatableFieldsConfig.RoomFacilitiesTranslatableFields
+            );
+
+            // Translate only changed fields
+            if (changedFields.Contains("GroupName") && !string.IsNullOrWhiteSpace(sourceModel.GroupName))
+            {
+                sourceModel.GroupName = await _translationService.TranslateTextAsync(
+                    sourceModel.GroupName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("FacilityName") && !string.IsNullOrWhiteSpace(sourceModel.FacilityName))
+            {
+                sourceModel.FacilityName = await _translationService.TranslateTextAsync(
+                    sourceModel.FacilityName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("OtherGroupName") && !string.IsNullOrWhiteSpace(sourceModel.OtherGroupName))
+            {
+                sourceModel.OtherGroupName = await _translationService.TranslateTextAsync(
+                    sourceModel.OtherGroupName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            if (changedFields.Contains("OtherFacilityName") && !string.IsNullOrWhiteSpace(sourceModel.OtherFacilityName))
+            {
+                sourceModel.OtherFacilityName = await _translationService.TranslateTextAsync(
+                    sourceModel.OtherFacilityName,
+                    sourceLang.LanguageCode,
+                    targetLang.LanguageCode
+                );
+            }
+
+            return sourceModel;
         }
+    }
+}
+```
+
+### Updated Controller with Change Detection
+
+```csharp
+// V3BookingEngine/Controllers/PropertyController.cs
+
+[HttpPost]
+public async Task<IActionResult> CreateProperty(CreatePropertyViewModel model)
+{
+    try
+    {
+        // ... existing validation code ...
+
+        var ownerId = userId;
+        var userlanguageId = int.TryParse(User.Claims.FirstOrDefault(c => c.Type == "LanguageId")?.Value, out var langId) ? langId : 1;
+        
+        // ⭐ NEW: Check if translatable fields have values before translating
+        var hasTranslatableFields = TranslationHelper.HasTranslatableFields(
+            model, 
+            TranslatableFieldsConfig.PropertyTranslatableFields
+        );
+        
+        string result;
+        
+        if (userlanguageId == 1)
+        {
+            // Default language - save to main table
+            result = await _propertyManagementService.CreatePropertyAsync(model, ownerId, userlanguageId);
+        }
+        else
+        {
+            // Non-default language - check if translation enabled and fields exist
+            var isTranslationEnabled = await TranslationHelper.IsTranslationEnabledForPropertyAsync(
+                0, // New property, check global setting
+                _propertyManagementService.GetConnection()
+            );
+            
+            if (isTranslationEnabled && hasTranslatableFields)
+            {
+                // Translate and save to ML table
+                result = await _propertyManagementService.CreatePropertyWithTranslationAsync(
+                    model,
+                    ownerId,
+                    1, // Source: English
+                    userlanguageId, // Target: Selected language
+                    autoTranslate: true
+                );
+            }
+            else
+            {
+                // Save directly to ML table without translation
+                result = await _propertyManagementService.CreatePropertyAsync(model, ownerId, userlanguageId);
+            }
+        }
+        
+        // ... rest of the code ...
+    }
+    catch (Exception ex)
+    {
+        // ... error handling ...
+    }
+}
+
+[HttpPost]
+public async Task<IActionResult> UpdateProperty(CreatePropertyViewModel model, int accommodationId)
+{
+    try
+    {
+        // ... existing validation code ...
+
+        var ownerId = userId;
+        var userlanguageId = int.TryParse(User.Claims.FirstOrDefault(c => c.Type == "LanguageId")?.Value, out var langId) ? langId : 1;
+        
+        // ⭐ NEW: Get old model for comparison
+        var oldModel = await _propertyManagementService.GetPropertyByIdAsync(accommodationId, userlanguageId);
+        
+        // ⭐ NEW: Check if translatable fields changed
+        var hasTranslatableFieldsChanged = FieldChangeDetector.HasTranslatableFieldsChanged(
+            model,
+            oldModel,
+            TranslatableFieldsConfig.PropertyTranslatableFields
+        );
+        
+        string result;
+        
+        if (userlanguageId == 1)
+        {
+            // Default language - update main table
+            result = await _propertyManagementService.UpdatePropertyAsync(model, accommodationId, ownerId, userlanguageId);
+        }
+        else
+        {
+            // Non-default language
+            var isTranslationEnabled = await TranslationHelper.IsTranslationEnabledForPropertyAsync(
+                accommodationId,
+                _propertyManagementService.GetConnection()
+            );
+            
+            if (isTranslationEnabled && hasTranslatableFieldsChanged)
+            {
+                // ⭐ Only translate if fields changed
+                result = await _propertyManagementService.UpdatePropertyWithTranslationAsync(
+                    model,
+                    accommodationId,
+                    ownerId,
+                    1, // Source: English
+                    userlanguageId, // Target: Selected language
+                    autoTranslate: true
+                );
+            }
+            else
+            {
+                // Update ML table without translation
+                result = await _propertyManagementService.UpdatePropertyAsync(model, accommodationId, ownerId, userlanguageId);
+            }
+        }
+        
+        // ... rest of the code ...
+    }
+    catch (Exception ex)
+    {
+        // ... error handling ...
     }
 }
 ```
 
 ---
 
-## Implementation Flow
+## Implementation Flow with Change Detection
 
 ### Flow Diagram
 
@@ -671,242 +1456,193 @@ Admin Creates/Updates Data
 Check LanguageId
     ↓
 Is LanguageId = 1 (Default/English)?
-    ├─ YES → Save to Main Table (Accommodations, Rooms, etc.)
-    └─ NO → Check if Translation Enabled for Property
+    ├─ YES → Save/Update Main Table
+    │         ↓
+    │    Check if other languages need translation
+    │         ↓
+    │    ⭐ Check: Are translatable fields changed?
+    │         ├─ YES → Translate → Save to ML Table
+    │         └─ NO → Skip translation
+    │
+    └─ NO → ⭐ Check: Are translatable fields changed?
             ↓
-        Is Translation Enabled?
-            ├─ YES → Translate Fields → Save to ML Table
-            └─ NO → Save Empty/Null to ML Table (Manual entry required)
+        Is Translation Enabled for Property?
+            ├─ YES → ⭐ Check: Do translatable fields have values?
+            │         ├─ YES → Translate → Save to ML Table
+            │         └─ NO → Save Empty to ML Table
+            └─ NO → Save Empty to ML Table (Manual entry)
 ```
 
-### Method Signature Examples
-
-#### Property Management Service Update
+### Decision Logic
 
 ```csharp
-// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+// Pseudocode for translation decision
+bool shouldTranslate = false;
 
-// Existing method signature (keep as is)
-public async Task<string> CreatePropertyAsync(
-    CreatePropertyViewModel model, 
-    int ownerId, 
-    int languageId)
-
-// NEW: Add translation support
-public async Task<string> CreatePropertyWithTranslationAsync(
-    CreatePropertyViewModel model,
-    int ownerId,
-    int sourceLanguageId,
-    int targetLanguageId,
-    bool autoTranslate = false)
+if (languageId != 1) // Not default language
 {
-    // 1. Save to main table if sourceLanguageId = 1
-    // 2. If targetLanguageId != 1 and autoTranslate = true:
-    //    - Get source language code
-    //    - Get target language code
-    //    - Translate AccommodationName using ITranslationService
-    //    - Save to Accommodations_ML table
-    // 3. Return result
-}
-```
-
-#### Room Management Service Update
-
-```csharp
-// V3BookingEngine/Services/RoomManagementService/RoomManagementService.cs
-
-// NEW: Add translation support
-public async Task<string> CreateRoomWithTranslationAsync(
-    CreateRoomViewModel model,
-    int accommodationId,
-    int sourceLanguageId,
-    int targetLanguageId,
-    bool autoTranslate = false)
-{
-    // Similar flow as Property
-}
-```
-
----
-
-## Service Registration
-
-```csharp
-// V3BookingEngine/Services/TranslationService/ServiceRegistration.cs
-namespace V3BookingEngine.Services.TranslationService
-{
-    public static class ServiceRegistration
+    if (isTranslationEnabledForProperty)
     {
-        public static IServiceCollection AddTranslationServices(
-            this IServiceCollection services,
-            IConfiguration configuration)
+        if (isUpdateOperation)
         {
-            // Register HttpClient for translation APIs
-            services.AddHttpClient<ITranslationService, TranslationService>();
-
-            // Register translation service
-            services.AddScoped<ITranslationService, TranslationService>();
-
-            // Register translation helpers
-            services.AddScoped<PropertyTranslationHelper>();
-            services.AddScoped<RoomTranslationHelper>();
-            services.AddScoped<PolicyTranslationHelper>();
-            services.AddScoped<PromotionTranslationHelper>();
-
-            return services;
+            // For updates: check if translatable fields changed
+            shouldTranslate = HasTranslatableFieldsChanged(newModel, oldModel);
+        }
+        else
+        {
+            // For creates: check if translatable fields have values
+            shouldTranslate = HasTranslatableFields(newModel);
         }
     }
 }
-```
 
-### Program.cs Registration
-
-```csharp
-// Program.cs
-using V3BookingEngine.Services.TranslationService;
-
-// Add translation services
-builder.Services.AddTranslationServices(builder.Configuration);
-```
-
----
-
-## Database Schema Considerations
-
-### Add Translation Toggle to Accommodations Table
-
-```sql
--- Add column to enable/disable translation per property
-ALTER TABLE Accommodations
-ADD AutoTranslateEnabled BIT DEFAULT 0;
-
--- Index for performance
-CREATE INDEX IX_Accommodations_AutoTranslateEnabled 
-ON Accommodations(AutoTranslateEnabled);
-```
-
-### ML Tables Structure (Example: Accommodations_ML)
-
-```sql
-CREATE TABLE Accommodations_ML (
-    TranslationId INT PRIMARY KEY IDENTITY(1,1),
-    AccommodationId INT NOT NULL,
-    LanguageId INT NOT NULL,
-    AccommodationName NVARCHAR(500),
-    -- Add other translatable fields
-    CreatedDate DATETIME DEFAULT GETDATE(),
-    UpdatedDate DATETIME DEFAULT GETDATE(),
-    
-    FOREIGN KEY (AccommodationId) REFERENCES Accommodations(AccommodationId),
-    FOREIGN KEY (LanguageId) REFERENCES Languages(LanguageId),
-    UNIQUE (AccommodationId, LanguageId)
-);
-```
-
----
-
-## Error Handling Strategy
-
-### Translation Service Error Handling
-
-```csharp
-// If translation fails:
-// 1. Log error
-// 2. Return original text (fallback)
-// 3. Notify admin (optional)
-// 4. Continue with save operation (don't block user)
-```
-
-### Method Signature for Error Handling
-
-```csharp
-public class TranslationResult
+if (shouldTranslate)
 {
-    public bool Success { get; set; }
-    public string TranslatedText { get; set; } = string.Empty;
-    public string OriginalText { get; set; } = string.Empty;
-    public string ErrorMessage { get; set; } = string.Empty;
-    public string ProviderName { get; set; } = string.Empty;
+    // Run translation
+    TranslateAndSave();
 }
-
-public interface ITranslationService
+else
 {
-    Task<TranslationResult> TranslateTextWithResultAsync(
-        string text,
-        string sourceLanguageCode,
-        string targetLanguageCode);
+    // Skip translation
+    SaveWithoutTranslation();
 }
 ```
 
 ---
 
-## Testing Strategy
+## Example Scenarios
 
-### Unit Tests Structure
-
+### Scenario 1: Create Property - Only PropertyName Changed
 ```
-Tests/
-├── TranslationService.Tests/
-│   ├── DeepLTranslationProviderTests.cs
-│   ├── LibreTranslateProviderTests.cs
-│   └── TranslationServiceTests.cs
-├── PropertyTranslationHelper.Tests/
-│   └── PropertyTranslationHelperTests.cs
-└── Integration.Tests/
-    └── TranslationIntegrationTests.cs
+Input:
+- AccommodationName: "Grand Hotel" ✅ (Translatable - Changed)
+- TimeZoneId: 1 (Non-translatable)
+- CurrencyId: 2 (Non-translatable)
+
+Decision: ✅ TRANSLATE (PropertyName has value)
+Action: Translate "Grand Hotel" and save to ML table
 ```
 
-### Test Method Signatures
+### Scenario 2: Update Property - Only TimeZone Changed
+```
+Input:
+- AccommodationName: "Grand Hotel" (No change)
+- TimeZoneId: 2 (Changed from 1) ❌ (Non-translatable)
+
+Decision: ❌ SKIP TRANSLATION (No translatable fields changed)
+Action: Update main table only, skip ML table translation
+```
+
+### Scenario 3: Update Property - PropertyName Changed
+```
+Input:
+- AccommodationName: "Grand Hotel Premium" ✅ (Changed from "Grand Hotel")
+- TimeZoneId: 1 (No change)
+
+Decision: ✅ TRANSLATE (PropertyName changed)
+Action: Translate "Grand Hotel Premium" and update ML table
+```
+
+### Scenario 4: Create Property - No Translatable Fields
+```
+Input:
+- AccommodationName: "" (Empty)
+- TimeZoneId: 1
+- CurrencyId: 2
+
+Decision: ❌ SKIP TRANSLATION (No translatable fields with values)
+Action: Save to main table only
+```
+
+---
+
+## Helper Methods Summary
 
 ```csharp
-[Fact]
-public async Task TranslateTextAsync_WithValidInput_ReturnsTranslatedText()
+// Check if translatable fields changed (for updates)
+FieldChangeDetector.HasTranslatableFieldsChanged(newModel, oldModel, translatableFields)
 
-[Fact]
-public async Task TranslateTextAsync_WithInvalidApiKey_ReturnsOriginalText()
+// Get list of changed translatable fields
+FieldChangeDetector.GetChangedTranslatableFields(newModel, oldModel, translatableFields)
 
-[Fact]
-public async Task TranslatePropertyAsync_WithLanguageId1_SavesToMainTable()
+// Check if model has translatable fields with values (for creates)
+TranslationHelper.HasTranslatableFields(model, translatableFields)
 
-[Fact]
-public async Task TranslatePropertyAsync_WithLanguageId2_SavesToMLTable()
+// Check if translation enabled for property
+TranslationHelper.IsTranslationEnabledForPropertyAsync(accommodationId, connection)
 ```
 
 ---
 
-## Performance Considerations
+## Modules with Field Change Detection Summary ⭐
 
-1. **Batch Translation**: Use `TranslateBatchAsync` for multiple fields
-2. **Caching**: Cache translated content to avoid re-translating
-3. **Rate Limiting**: Respect API rate limits (DeepL: 5 req/sec free tier)
-4. **Async Operations**: All translation operations should be async
-5. **Background Jobs**: Consider queuing translations for large datasets
+All modules now support **conditional translation** - translation only runs when translatable fields are changed.
+
+| Module | Translatable Fields | Change Detection | Translation Helper |
+|--------|-------------------|------------------|-------------------|
+| **Property** | `AccommodationName` | ✅ Yes | `PropertyTranslationHelper` |
+| **Additional Detail** | `KeyCollectionComments`, `PetsAllowedComments` | ✅ Yes | `PropertyTranslationHelper` |
+| **Addon** | `ActivityName`, `ShortDescription`, `LongDescription`, `CancellationPolicy`, `GuaranteePolicy` | ✅ Yes | `AddonTranslationHelper` |
+| **Room** | `RoomName`, `RoomDescription` | ✅ Yes | `RoomTranslationHelper` |
+| **Rate Plan** | `RatePlanName`, `DisplayRatePlanName`, `Included`, `Highlight`, `MealDescription` | ✅ Yes | `RatePlanTranslationHelper` |
+| **Policy** | `PolicyName`, `CancellationPolicyDescription`, `BookingPolicyDescription`, `NoShowPolicyDescription` | ✅ Yes | `PolicyTranslationHelper` |
+| **Promotion** | `PromotionName`, `Description` | ✅ Yes | `PromotionTranslationHelper` |
+| **Property Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | ✅ Yes | `PropertyFacilitiesTranslationHelper` |
+| **Room Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | ✅ Yes | `RoomFacilitiesTranslationHelper` |
+
+### How It Works
+
+1. **For Create Operations**:
+   - Check if translatable fields have values
+   - If YES → Translate and save
+   - If NO → Skip translation
+
+2. **For Update Operations**:
+   - Compare new model with old model
+   - Check if any translatable fields changed
+   - If YES → Translate only changed fields
+   - If NO → Skip translation (even if other non-translatable fields changed)
+
+### Example: Room Update
+
+```csharp
+// Scenario 1: Only RoomName changed
+newModel.RoomName = "Deluxe Suite" (changed)
+newModel.MaxPersons = 2 (changed, but non-translatable)
+oldModel.RoomName = "Standard Room"
+
+Result: ✅ TRANSLATE (RoomName is translatable and changed)
+
+// Scenario 2: Only MaxPersons changed
+newModel.MaxPersons = 3 (changed, but non-translatable)
+oldModel.MaxPersons = 2
+newModel.RoomName = "Deluxe Suite" (no change)
+oldModel.RoomName = "Deluxe Suite"
+
+Result: ❌ SKIP TRANSLATION (No translatable fields changed)
+```
 
 ---
 
-## Security Considerations
+## Performance Benefits
 
-1. **API Key Storage**: Store API keys in `appsettings.json` (development) or Azure Key Vault (production)
-2. **Input Validation**: Validate text length and content before translation
-3. **Error Messages**: Don't expose API keys in error messages
-4. **Rate Limiting**: Implement client-side rate limiting to prevent abuse
+1. **Reduced API Calls**: Only translate when necessary
+2. **Faster Updates**: Skip translation for non-translatable field changes
+3. **Cost Savings**: Fewer API calls = lower costs
+4. **Better UX**: Faster response times
 
 ---
 
 ## Next Steps
 
-1. ✅ Create folder structure
-2. ✅ Implement `ITranslationService` and providers
-3. ✅ Create translation helpers for each module
-4. ✅ Update existing service methods to support translation
-5. ✅ Add database columns for translation toggle
-6. ✅ Update stored procedures to handle ML tables
-7. ✅ Add UI toggle for enabling translation per property
-8. ✅ Implement error handling and logging
-9. ✅ Add unit tests
-10. ✅ Performance testing and optimization
+1. ✅ Implement `FieldChangeDetector` helper
+2. ✅ Define `TranslatableFieldsConfig` for all modules
+3. ✅ Update translation helpers with change detection
+4. ✅ Update service methods to use change detection
+5. ✅ Update controllers to check field changes
+6. ✅ Test with various scenarios
+7. ✅ Add logging for translation decisions
 
 ---
 
 **Last Updated**: 2024
-
