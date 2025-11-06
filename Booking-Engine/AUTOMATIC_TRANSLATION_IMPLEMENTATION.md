@@ -1819,6 +1819,796 @@ Result: ❌ SKIP TRANSLATION (No translatable fields changed)
 
 ---
 
+## Database Operations Based on LanguageId
+
+### Save/Update Logic
+
+#### 1. Save Operation (Create)
+
+```csharp
+// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+
+public async Task<string> CreatePropertyAsync(
+    CreatePropertyViewModel model, 
+    int ownerId, 
+    int languageId)
+{
+    try
+    {
+        await _connection.OpenAsync();
+
+        using var cmd = new SqlCommand("SP_Accommodations_Core", _connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        cmd.Parameters.AddWithValue("@ProcedureType", "I"); // Insert
+        cmd.Parameters.AddWithValue("@SessionType", "1");
+        cmd.Parameters.AddWithValue("@p_MultiLanguageId", languageId); // ⭐ LanguageId parameter
+        
+        // ... other parameters ...
+
+        // ⭐ DECISION: Save to main table or ML table based on LanguageId
+        if (languageId == 1) // Default language (English)
+        {
+            // Save to main table: Accommodations
+            cmd.Parameters.AddWithValue("@p_AccommodationName", model.AccommodationName);
+            // ... other fields ...
+        }
+        else
+        {
+            // Save to ML table: Accommodations_ML
+            cmd.Parameters.AddWithValue("@p_AccommodationName", model.AccommodationName);
+            // ... other translatable fields ...
+        }
+
+        var messageOut = new SqlParameter("@MessageOut", SqlDbType.VarChar, 500)
+        {
+            Direction = ParameterDirection.Output
+        };
+        cmd.Parameters.Add(messageOut);
+
+        await cmd.ExecuteNonQueryAsync();
+        
+        var result = messageOut.Value?.ToString() ?? "Failure";
+        return result;
+    }
+    catch (Exception ex)
+    {
+        await _errorLoggingHelper.LogErrorAsync(_logger, ex, "CreatePropertyAsync", ownerId.ToString());
+        return "Failure";
+    }
+    finally
+    {
+        if (_connection.State == ConnectionState.Open)
+        {
+            await _connection.CloseAsync();
+        }
+    }
+}
+```
+
+#### 2. Update Operation
+
+```csharp
+public async Task<string> UpdatePropertyAsync(
+    CreatePropertyViewModel model,
+    int accommodationId,
+    int ownerId,
+    int languageId)
+{
+    try
+    {
+        await _connection.OpenAsync();
+
+        using var cmd = new SqlCommand("SP_Accommodations_Core", _connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        cmd.Parameters.AddWithValue("@ProcedureType", "U"); // Update
+        cmd.Parameters.AddWithValue("@SessionType", "1");
+        cmd.Parameters.AddWithValue("@p_AccommodationId", accommodationId);
+        cmd.Parameters.AddWithValue("@p_MultiLanguageId", languageId); // ⭐ LanguageId parameter
+
+        // ⭐ DECISION: Update main table or ML table based on LanguageId
+        if (languageId == 1) // Default language
+        {
+            // Update main table: Accommodations
+            cmd.Parameters.AddWithValue("@p_AccommodationName", model.AccommodationName);
+        }
+        else
+        {
+            // Update or Insert in ML table: Accommodations_ML
+            // Stored procedure should handle: 
+            // - If record exists: UPDATE
+            // - If record doesn't exist: INSERT
+            cmd.Parameters.AddWithValue("@p_AccommodationName", model.AccommodationName);
+        }
+
+        var messageOut = new SqlParameter("@MessageOut", SqlDbType.VarChar, 500)
+        {
+            Direction = ParameterDirection.Output
+        };
+        cmd.Parameters.Add(messageOut);
+
+        await cmd.ExecuteNonQueryAsync();
+        
+        return messageOut.Value?.ToString() ?? "Failure";
+    }
+    catch (Exception ex)
+    {
+        await _errorLoggingHelper.LogErrorAsync(_logger, ex, "UpdatePropertyAsync", accommodationId.ToString());
+        return "Failure";
+    }
+    finally
+    {
+        if (_connection.State == ConnectionState.Open)
+        {
+            await _connection.CloseAsync();
+        }
+    }
+}
+```
+
+#### 3. Get Operation (Retrieve)
+
+```csharp
+public async Task<CreatePropertyViewModel> GetPropertyByIdAsync(
+    int accommodationId, 
+    int languageId)
+{
+    try
+    {
+        await _connection.OpenAsync();
+
+        using var cmd = new SqlCommand("SP_Accommodations_Core", _connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        cmd.Parameters.AddWithValue("@ProcedureType", "G"); // Get
+        cmd.Parameters.AddWithValue("@SessionType", "1");
+        cmd.Parameters.AddWithValue("@p_AccommodationId", accommodationId);
+        cmd.Parameters.AddWithValue("@p_MultiLanguageId", languageId); // ⭐ LanguageId parameter
+
+        using var adapter = new SqlDataAdapter(cmd);
+        var dataSet = new DataSet();
+        adapter.Fill(dataSet);
+
+        var model = new CreatePropertyViewModel();
+
+        if (dataSet.Tables.Count > 0 && dataSet.Tables[0].Rows.Count > 0)
+        {
+            var row = dataSet.Tables[0].Rows[0];
+            
+            // ⭐ Stored procedure should return data based on LanguageId:
+            // - If LanguageId = 1: Get from Accommodations table
+            // - If LanguageId != 1: Get from Accommodations_ML table with fallback to Accommodations
+            
+            model.AccommodationName = row["AccommodationName"]?.ToString() ?? string.Empty;
+            model.AccommodationTypeId = Convert.ToInt32(row["AccommodationTypeId"] ?? 0);
+            // ... other fields ...
+        }
+
+        return model;
+    }
+    catch (Exception ex)
+    {
+        await _errorLoggingHelper.LogErrorAsync(_logger, ex, "GetPropertyByIdAsync", accommodationId.ToString());
+        return new CreatePropertyViewModel();
+    }
+    finally
+    {
+        if (_connection.State == ConnectionState.Open)
+        {
+            await _connection.CloseAsync();
+        }
+    }
+}
+```
+
+### Stored Procedure Example
+
+```sql
+-- SP_Accommodations_Core
+ALTER PROCEDURE [dbo].[SP_Accommodations_Core]
+    @ProcedureType VARCHAR(10),
+    @SessionType VARCHAR(10) = '1',
+    @p_AccommodationId INT = NULL,
+    @p_MultiLanguageId INT = 1, -- ⭐ LanguageId parameter
+    @p_AccommodationName NVARCHAR(500) = NULL,
+    -- ... other parameters ...
+    @MessageOut VARCHAR(500) OUTPUT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- GET Operation
+    IF @ProcedureType = 'G'
+    BEGIN
+        IF @p_MultiLanguageId = 1
+        BEGIN
+            -- Get from main table (English/Default)
+            SELECT 
+                a.AccommodationId,
+                a.AccommodationName,
+                a.AccommodationTypeId,
+                -- ... other fields from Accommodations table
+            FROM Accommodations a
+            WHERE a.AccommodationId = @p_AccommodationId
+        END
+        ELSE
+        BEGIN
+            -- Get from ML table with fallback to main table
+            SELECT 
+                a.AccommodationId,
+                ISNULL(at.AccommodationName, a.AccommodationName) AS AccommodationName,
+                a.AccommodationTypeId,
+                -- ... other fields
+            FROM Accommodations a
+            LEFT JOIN Accommodations_ML at 
+                ON a.AccommodationId = at.AccommodationId 
+                AND at.LanguageId = @p_MultiLanguageId
+            WHERE a.AccommodationId = @p_AccommodationId
+        END
+    END
+
+    -- INSERT Operation
+    IF @ProcedureType = 'I'
+    BEGIN
+        IF @p_MultiLanguageId = 1
+        BEGIN
+            -- Insert into main table
+            INSERT INTO Accommodations (
+                AccommodationName,
+                AccommodationTypeId,
+                -- ... other fields
+            )
+            VALUES (
+                @p_AccommodationName,
+                @p_AccommodationTypeId,
+                -- ... other values
+            )
+            
+            SET @MessageOut = 'Success'
+        END
+        ELSE
+        BEGIN
+            -- First insert into main table (if not exists), then into ML table
+            -- Get the AccommodationId from main table insert
+            DECLARE @NewAccommodationId INT
+            
+            -- Insert into main table with default values
+            INSERT INTO Accommodations (
+                AccommodationName, -- Use default or empty
+                AccommodationTypeId,
+                -- ... other fields
+            )
+            VALUES (
+                '', -- Empty for non-default language
+                @p_AccommodationTypeId,
+                -- ... other values
+            )
+            
+            SET @NewAccommodationId = SCOPE_IDENTITY()
+            
+            -- Insert into ML table
+            INSERT INTO Accommodations_ML (
+                AccommodationId,
+                LanguageId,
+                AccommodationName
+            )
+            VALUES (
+                @NewAccommodationId,
+                @p_MultiLanguageId,
+                @p_AccommodationName
+            )
+            
+            SET @MessageOut = 'Success'
+        END
+    END
+
+    -- UPDATE Operation
+    IF @ProcedureType = 'U'
+    BEGIN
+        IF @p_MultiLanguageId = 1
+        BEGIN
+            -- Update main table
+            UPDATE Accommodations
+            SET AccommodationName = @p_AccommodationName,
+                -- ... other fields
+            WHERE AccommodationId = @p_AccommodationId
+            
+            SET @MessageOut = 'Success'
+        END
+        ELSE
+        BEGIN
+            -- Update or Insert in ML table (UPSERT)
+            IF EXISTS (
+                SELECT 1 FROM Accommodations_ML 
+                WHERE AccommodationId = @p_AccommodationId 
+                AND LanguageId = @p_MultiLanguageId
+            )
+            BEGIN
+                -- UPDATE existing ML record
+                UPDATE Accommodations_ML
+                SET AccommodationName = @p_AccommodationName,
+                    UpdatedDate = GETDATE()
+                WHERE AccommodationId = @p_AccommodationId 
+                AND LanguageId = @p_MultiLanguageId
+            END
+            ELSE
+            BEGIN
+                -- INSERT new ML record
+                INSERT INTO Accommodations_ML (
+                    AccommodationId,
+                    LanguageId,
+                    AccommodationName
+                )
+                VALUES (
+                    @p_AccommodationId,
+                    @p_MultiLanguageId,
+                    @p_AccommodationName
+                )
+            END
+            
+            SET @MessageOut = 'Success'
+        END
+    END
+END
+```
+
+---
+
+## Frontend Language Dropdown Implementation
+
+### Header Language Dropdown (Next to "Find Property")
+
+#### 1. HTML Structure
+
+```html
+<!-- Views/Shared/_Layout.cshtml or Views/Shared/_Header.cshtml -->
+
+<header class="main-header">
+    <div class="container">
+        <div class="header-content">
+            <!-- Logo -->
+            <div class="logo">
+                <a href="/">BookingWhizz</a>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="main-nav">
+                <ul>
+                    <li><a href="/Property/PropertiesList">Find Property</a></li>
+                    <!-- ... other menu items ... -->
+                </ul>
+            </nav>
+
+            <!-- Language Dropdown -->
+            <div class="language-selector">
+                <select id="languageDropdown" class="form-select language-dropdown">
+                    <option value="1" data-code="en">English</option>
+                    <option value="2" data-code="ar">العربية (Arabic)</option>
+                    <option value="3" data-code="ur">اردو (Urdu)</option>
+                    <option value="4" data-code="fr">Français (French)</option>
+                    <option value="5" data-code="es">Español (Spanish)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</header>
+```
+
+#### 2. JavaScript Implementation
+
+```javascript
+// wwwroot/js/language-selector.js
+
+$(document).ready(function() {
+    // Get current language from cookie or default to 1 (English)
+    var currentLanguageId = getCookie('SelectedLanguageId') || '1';
+    $('#languageDropdown').val(currentLanguageId);
+
+    // Language change event
+    $('#languageDropdown').on('change', function() {
+        var selectedLanguageId = $(this).val();
+        var selectedLanguageCode = $(this).find('option:selected').data('code');
+        
+        // Save to cookie
+        setCookie('SelectedLanguageId', selectedLanguageId, 365);
+        
+        // Update all API calls to use new LanguageId
+        updateLanguageId(selectedLanguageId);
+        
+        // Reload current page data with new language
+        reloadPageData(selectedLanguageId);
+        
+        // Optional: Show loading indicator
+        showLanguageLoading();
+    });
+
+    function updateLanguageId(languageId) {
+        // Update global variable
+        window.currentLanguageId = languageId;
+        
+        // Update all AJAX calls to include LanguageId
+        $.ajaxSetup({
+            beforeSend: function(xhr, settings) {
+                if (settings.url && settings.url.indexOf('/api/') !== -1) {
+                    // Add LanguageId to API calls
+                    if (settings.url.indexOf('?') !== -1) {
+                        settings.url += '&languageId=' + languageId;
+                    } else {
+                        settings.url += '?languageId=' + languageId;
+                    }
+                }
+            }
+        });
+    }
+
+    function reloadPageData(languageId) {
+        // Reload property list if on properties page
+        if (window.location.pathname.indexOf('/Property/PropertiesList') !== -1) {
+            loadPropertiesList(languageId);
+        }
+        
+        // Reload property details if on property detail page
+        if (window.location.pathname.indexOf('/Property/PropertyDetails') !== -1) {
+            var propertyId = getPropertyIdFromUrl();
+            loadPropertyDetails(propertyId, languageId);
+        }
+        
+        // Add other page-specific reload logic here
+    }
+
+    function loadPropertiesList(languageId) {
+        $.ajax({
+            url: '/api/Property/GetPropertiesList',
+            type: 'GET',
+            data: { languageId: languageId },
+            success: function(response) {
+                if (response.success) {
+                    renderPropertiesList(response.data);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading properties:', error);
+            }
+        });
+    }
+
+    function loadPropertyDetails(propertyId, languageId) {
+        $.ajax({
+            url: '/api/Property/GetProperty/' + propertyId,
+            type: 'GET',
+            data: { languageId: languageId },
+            success: function(response) {
+                if (response.success) {
+                    renderPropertyDetails(response.data);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading property details:', error);
+            }
+        });
+    }
+
+    // Cookie helper functions
+    function setCookie(name, value, days) {
+        var expires = "";
+        if (days) {
+            var date = new Date();
+            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    }
+
+    function getCookie(name) {
+        var nameEQ = name + "=";
+        var ca = document.cookie.split(';');
+        for (var i = 0; i < ca.length; i++) {
+            var c = ca[i];
+            while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+            if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+        }
+        return null;
+    }
+
+    function showLanguageLoading() {
+        // Show loading indicator
+        $('body').append('<div id="languageLoading" class="language-loading"><i class="fas fa-spinner fa-spin"></i> Loading...</div>');
+        
+        setTimeout(function() {
+            $('#languageLoading').fadeOut(function() {
+                $(this).remove();
+            });
+        }, 1000);
+    }
+});
+```
+
+#### 3. CSS Styling
+
+```css
+/* wwwroot/css/language-selector.css */
+
+.language-selector {
+    display: inline-block;
+    margin-left: 20px;
+}
+
+.language-dropdown {
+    min-width: 150px;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background-color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.language-dropdown:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.language-loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px 40px;
+    border-radius: 8px;
+    z-index: 9999;
+    font-size: 16px;
+}
+
+/* RTL Support for Arabic */
+[dir="rtl"] .language-selector {
+    margin-left: 0;
+    margin-right: 20px;
+}
+```
+
+#### 4. API Controller Update
+
+```csharp
+// V3BookingEngine/Controllers/Api/PropertyApiController.cs
+
+[ApiController]
+[Route("api/[controller]")]
+public class PropertyApiController : ControllerBase
+{
+    private readonly IPropertyManagementService _propertyService;
+    private readonly ILanguageService _languageService;
+
+    [HttpGet("GetPropertiesList")]
+    public async Task<IActionResult> GetPropertiesList(
+        [FromQuery] int languageId = 1, // ⭐ Default to English
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10)
+    {
+        try
+        {
+            // Validate languageId
+            var language = await _languageService.GetLanguageByIdAsync(languageId);
+            if (language == null)
+            {
+                languageId = 1; // Fallback to default
+            }
+
+            // Get properties with LanguageId
+            var properties = await _propertyService.GetPropertiesListAsync(
+                languageId, 
+                page, 
+                pageSize
+            );
+
+            return Ok(new 
+            { 
+                success = true, 
+                data = properties,
+                languageId = languageId,
+                languageCode = language?.LanguageCode ?? "en"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+
+    [HttpGet("GetProperty/{id}")]
+    public async Task<IActionResult> GetProperty(
+        int id, 
+        [FromQuery] int languageId = 1) // ⭐ LanguageId from query string
+    {
+        try
+        {
+            // Validate languageId
+            var language = await _languageService.GetLanguageByIdAsync(languageId);
+            if (language == null)
+            {
+                languageId = 1; // Fallback to default
+            }
+
+            // Get property with LanguageId
+            var property = await _propertyService.GetPropertyByIdAsync(id, languageId);
+
+            if (property == null)
+            {
+                return NotFound(new { success = false, message = "Property not found" });
+            }
+
+            return Ok(new 
+            { 
+                success = true, 
+                data = property,
+                languageId = languageId,
+                languageCode = language?.LanguageCode ?? "en"
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { success = false, message = ex.Message });
+        }
+    }
+}
+```
+
+#### 5. Service Method Update
+
+```csharp
+// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+
+public async Task<List<PropertyViewModel>> GetPropertiesListAsync(
+    int languageId, 
+    int page = 1, 
+    int pageSize = 10)
+{
+    try
+    {
+        await _connection.OpenAsync();
+
+        using var cmd = new SqlCommand("SP_Accommodations_GetList", _connection)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+
+        cmd.Parameters.AddWithValue("@p_MultiLanguageId", languageId); // ⭐ LanguageId
+        cmd.Parameters.AddWithValue("@p_Page", page);
+        cmd.Parameters.AddWithValue("@p_PageSize", pageSize);
+
+        using var adapter = new SqlDataAdapter(cmd);
+        var dataSet = new DataSet();
+        adapter.Fill(dataSet);
+
+        var properties = new List<PropertyViewModel>();
+
+        if (dataSet.Tables.Count > 0)
+        {
+            foreach (DataRow row in dataSet.Tables[0].Rows)
+            {
+                properties.Add(new PropertyViewModel
+                {
+                    AccommodationId = Convert.ToInt32(row["AccommodationId"]),
+                    AccommodationName = row["AccommodationName"]?.ToString() ?? string.Empty,
+                    // ... other fields based on LanguageId
+                });
+            }
+        }
+
+        return properties;
+    }
+    catch (Exception ex)
+    {
+        await _errorLoggingHelper.LogErrorAsync(_logger, ex, "GetPropertiesListAsync", languageId.ToString());
+        return new List<PropertyViewModel>();
+    }
+    finally
+    {
+        if (_connection.State == ConnectionState.Open)
+        {
+            await _connection.CloseAsync();
+        }
+    }
+}
+```
+
+### Language Dropdown with Dynamic Loading
+
+```csharp
+// V3BookingEngine/Controllers/HomeController.cs or PropertyController.cs
+
+[HttpGet]
+public async Task<IActionResult> GetLanguages()
+{
+    try
+    {
+        var languages = await _languageService.GetAllLanguagesAsync();
+        
+        var languageList = languages.Select(l => new
+        {
+            LanguageId = l.LanguageId,
+            LanguageCode = l.LanguageCode,
+            LanguageName = l.LanguageName,
+            IsDefault = l.IsDefault
+        }).ToList();
+
+        return Json(new { success = true, data = languageList });
+    }
+    catch (Exception ex)
+    {
+        return Json(new { success = false, message = ex.Message });
+    }
+}
+```
+
+```javascript
+// Load languages dynamically
+$(document).ready(function() {
+    loadLanguages();
+});
+
+function loadLanguages() {
+    $.ajax({
+        url: '/Home/GetLanguages',
+        type: 'GET',
+        success: function(response) {
+            if (response.success) {
+                var dropdown = $('#languageDropdown');
+                dropdown.empty();
+                
+                response.data.forEach(function(lang) {
+                    var option = $('<option></option>')
+                        .attr('value', lang.LanguageId)
+                        .attr('data-code', lang.LanguageCode)
+                        .text(lang.LanguageName);
+                    
+                    if (lang.IsDefault) {
+                        option.attr('selected', 'selected');
+                    }
+                    
+                    dropdown.append(option);
+                });
+            }
+        }
+    });
+}
+```
+
+---
+
+## Complete Flow Diagram
+
+```
+User Selects Language from Dropdown
+    ↓
+JavaScript saves LanguageId to Cookie
+    ↓
+All API calls include ?languageId=X parameter
+    ↓
+API Controller receives LanguageId
+    ↓
+Service Method calls Stored Procedure with @p_MultiLanguageId
+    ↓
+Stored Procedure:
+    - If LanguageId = 1 → Query Accommodations table
+    - If LanguageId != 1 → Query Accommodations_ML table with LEFT JOIN to Accommodations (fallback)
+    ↓
+Return data in selected language
+    ↓
+Frontend displays translated content
+```
+
+---
+
 ## Performance Benefits
 
 1. **Reduced API Calls**: Only translate when necessary
