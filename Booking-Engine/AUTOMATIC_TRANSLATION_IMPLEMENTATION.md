@@ -175,6 +175,247 @@ V3BookingEngine/
 
 ---
 
+## Non-Translatable Fields (Translation Will NOT Run) ❌
+
+These fields are **NOT translatable**. If only these fields are changed, translation will **NOT** run.
+
+### Property Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Property Type | `AccommodationTypeId` | ID field (lookup) |
+| Property Category | `PropertyCategory` | ID list (lookup) |
+| Time Zone | `TimeZoneId` | ID field (lookup) |
+| Country | `Country` | ID field (lookup) |
+| City | `AddressId` | ID field (lookup) |
+| Post Code | `PostCode` | Alphanumeric code (not translatable) |
+| Currency | `CurrencyId` | ID field (lookup) |
+| Contact Number | `ContactNo` | Phone number (not translatable) |
+| Email | `EmailId` | Email address (not translatable) |
+| Latitude | `Latitude` | Numeric coordinate |
+| Longitude | `Longitude` | Numeric coordinate |
+| Web Search | `WebSearch` | Boolean flag |
+| Home Shopping | `HomeShopping` | Boolean flag |
+
+### Additional Detail Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| All other fields except `KeyCollectionComments` and `PetsAllowedComments` | Various | IDs, dates, booleans, etc. |
+
+### Addon Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Activity ID | `ActivityId` | ID field |
+| Bookable With Rateplan | `BookableWithRateplan` | Boolean flag |
+| Bookable Individual | `BookableIndividual` | Boolean flag |
+| Max Bookable Quantity | `MaxBookableQty` | Numeric value |
+| Currency | `CurrencyId` | ID field (lookup) |
+| Currency Code | `CurrencyCode` | Code (not translatable) |
+| Activity Bookable Type | `ActivityBookableTypeId` | ID field (lookup) |
+| Activity Category Type IDs | `ActivityCategoryTypeIds` | ID list (lookup) |
+| Variation Values | `VariationValues` | Price variations (numeric) |
+| Variation Prices | `VariationPrices` | Price list (numeric) |
+| Rates | `Rates` | Price (numeric) |
+| Status ID | `StatusId` | ID field (lookup) |
+| Image | `Image` | File path |
+| Temp Image | `TempImage` | File path |
+
+### Room Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Copy Room ID | `CopyRoomId` | ID field |
+| Room Type | `RoomTypeId` | ID field (lookup) |
+| Apartment Name | `ApartmentName` | (Note: Only `RoomName` is translatable for Room Type 1) |
+| Total Guest | `TotalGuest` | Numeric value |
+| Rack Rate | `RackRate` | Price (numeric) |
+| Max Persons | `MaxPersons` | Numeric value |
+| Number of Beds | `NoOfBeds` | Numeric value |
+| Bed Size | `BedSize` | Size specification (not translatable) |
+| Room Size | `RoomSize` | Numeric value (square meters/feet) |
+| Bathroom Detail | `BathRoomDetail` | Numeric value |
+| Room Address | `RoomAddress` | Address (may be translatable in future, currently not) |
+| All Array Bed | `AllArrayBed` | JSON/Array data |
+| Stay Room ID | `StayRoomId` | ID field |
+
+### Rate Plan Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Rate Plan ID | `RatePlanId` | ID field |
+| Room ID | `RoomId` | ID field (lookup) |
+| Default Currency | `RatePlan_DefualtCurrencyId` | ID field (lookup) |
+| Other Currency | `RatePlan_OtherCurrencyId` | ID field (lookup) |
+| Default Rates | `DefaultRates` | Price (numeric) |
+| Guest Quantity | `GuestQuantity` | Numeric value |
+| Adult Quantity | `AdultQuantity` | Numeric value |
+| Child Quantity | `ChildQuantity` | Numeric value |
+| Default Minimum Stay | `DefaultMinStay` | Numeric value |
+| Default Maximum Stay | `DefaultMaxStay` | Numeric value |
+| Booking Window From | `BookingWindowFrom` | Numeric value (days) |
+| Booking Window To | `BookingWindowTo` | Numeric value (days) |
+| Rate Code | `RateCode` | Code (not translatable) |
+| Meal ID | `MealId` | ID field (lookup) |
+| Meal Type ID | `MealTypeId` | ID field (lookup) |
+| On Request | `OnRequest` | Boolean flag |
+| Is Activities Mapped | `IsActivitiesMapped` | Boolean flag |
+| Is Activities | `IsActivities` | Boolean flag |
+| Is Occupancy | `IsOccupancy` | Boolean flag |
+| Is Loyalty | `IsLoyalty` | Boolean flag |
+| Advance Payment | `AdvancePayment` | Boolean flag |
+| Web | `Web` | Boolean flag |
+| Mobile | `Mobile` | Boolean flag |
+| Tablet | `Tablet` | Boolean flag |
+| Registered User | `Registered_User` | Boolean flag |
+| Mobile App | `MobileApp` | Boolean flag |
+| CRS | `CRS` | Boolean flag |
+| Policy IDs | `PolicyId` | ID list (lookup) |
+| Policy Start Dates | `PolicyStartDate` | Date list |
+| Policy End Dates | `PolicyEndDate` | Date list |
+| Policy Days (Monday-Sunday) | `PolicyMonday`, `PolicyTuesday`, etc. | Boolean flags |
+
+### Policy Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Accommodation ID | `AccommodationId` | ID field |
+| Owner ID | `OwnerId` | ID field |
+| Language ID | `LanguageId` | ID field |
+| Cancellation Policy Type | `CancellationPolicyTypeId` | ID field (lookup) |
+| Booking Policy Type | `BookingPolicyTypeId` | ID field (lookup) |
+| No-Show Policy Type | `NoShowPolicyTypeId` | ID field (lookup) |
+
+### Promotion Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Policy ID | `PolicyId` | ID field (lookup) |
+| Promotion Type | `PromotionTypeId` | ID field (lookup) |
+| Book Start Date | `BookStartDate` | Date |
+| Book End Date | `BookEndDate` | Date |
+| Stay Start Date | `StayStartDate` | Date |
+| Stay End Date | `StayEndDate` | Date |
+| Black Date Type | `BlackDateTypeId` | ID field (lookup) |
+| Block Dates | `BlockDates` | Date list |
+| Check In | `CheckIn` | Boolean flag |
+| Checkout | `Checkout` | Boolean flag |
+| Is Multi | `IsMulti` | Boolean flag |
+| Voucher Code | `VoucherCode` | Code (not translatable) |
+| Min Stay | `MinStay` | Numeric value |
+| Max Stay | `MaxStay` | Numeric value |
+| Device ID | `DeviceId` | ID field (lookup) |
+| Region ID | `RegionId` | ID field (lookup) |
+| Country ID | `CountryId` | ID field (lookup) |
+| City ID | `CityId` | ID field (lookup) |
+| Currency ID | `CurrencyId` | ID field (lookup) |
+| Early Days | `EarlyDays` | Numeric value |
+| Early Hours | `EarlyHours` | Numeric value |
+| Free Nights | `FreeNights` | Numeric value |
+| Free Days | `FreeDays` | Numeric value |
+| Multi Region ID | `MultiRegionId` | ID field (lookup) |
+| Multi Country IDs | `MultiCountryIds` | ID list (lookup) |
+| Multi City IDs | `MultiCityIds` | ID list (lookup) |
+| Per Nights | `PerNights` | Numeric list |
+| Days | `Days` | Numeric list |
+| Percentages | `Percentages` | Numeric list |
+| Discount Value | `DiscountValue` | Price (numeric) |
+| Discount Type | `DiscountType` | ID field (0 = %, 1 = Fixed) |
+| Monday-Sunday | `Monday`, `Tuesday`, etc. | Boolean flags |
+| Room Rate Plan IDs | `RoomRatePlanIds` | ID list (lookup) |
+
+### Property Facilities Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Type | `Type` | ID field (1 = Group, 2 = Facility) |
+| Group ID | `GroupId` | ID field (lookup) |
+| Facility IDs | `FacilityIds` | ID array (lookup) |
+| Group IDs | `GroupIds` | ID array (lookup) |
+| Is Checked | `IsChecked` | Boolean array |
+| Comments | `Comments` | (Note: Comments may be translatable in future) |
+| Group Facility IDs | `GroupFacilityIds` | ID array |
+
+### Room Facilities Module - Non-Translatable Fields
+
+| Field Name | Model Property | Reason |
+|------------|---------------|--------|
+| Type | `Type` | ID field (1 = Group, 2 = Facility) |
+| Group ID | `GroupId` | ID field (lookup) |
+| Facility IDs | `FacilityIds` | ID array (lookup) |
+| Group IDs | `GroupIds` | ID array (lookup) |
+| Is Checked | `IsChecked` | Boolean array |
+| Comments | `Comments` | (Note: Comments may be translatable in future) |
+| Group Facility IDs | `GroupFacilityIds` | ID array |
+| Room ID | `RoomId` | ID field |
+| Room ID Drag | `RoomIdDrag` | ID field |
+| GF ID | `GFId` | ID field |
+
+---
+
+## Field Change Detection Rules ⚠️
+
+### Translation Will Run ✅
+- If **ANY** translatable field is changed
+- Example: `AccommodationName` changed → Translation runs
+
+### Translation Will NOT Run ❌
+- If **ONLY** non-translatable fields are changed
+- Example: Only `TimeZoneId` changed → Translation skipped
+- Example: Only `CurrencyId` changed → Translation skipped
+- Example: Only `MaxPersons` changed → Translation skipped
+
+### Mixed Changes
+- If both translatable AND non-translatable fields changed:
+  - Translation **WILL** run (because translatable field changed)
+  - Only translatable fields will be translated
+  - Non-translatable fields will be saved as-is
+
+### Examples
+
+#### Example 1: Property Update
+```
+Changed Fields:
+- AccommodationName: "Grand Hotel" → "Grand Hotel Premium" ✅ (Translatable)
+- TimeZoneId: 1 → 2 ❌ (Non-translatable)
+
+Result: ✅ TRANSLATE (AccommodationName changed)
+```
+
+#### Example 2: Property Update
+```
+Changed Fields:
+- TimeZoneId: 1 → 2 ❌ (Non-translatable)
+- CurrencyId: 1 → 3 ❌ (Non-translatable)
+- AccommodationName: "Grand Hotel" (no change)
+
+Result: ❌ SKIP TRANSLATION (No translatable fields changed)
+```
+
+#### Example 3: Room Update
+```
+Changed Fields:
+- RoomName: "Standard Room" → "Deluxe Suite" ✅ (Translatable)
+- MaxPersons: 2 → 4 ❌ (Non-translatable)
+- RackRate: 100 → 150 ❌ (Non-translatable)
+
+Result: ✅ TRANSLATE (RoomName changed)
+Action: Only RoomName will be translated, MaxPersons and RackRate saved as-is
+```
+
+#### Example 4: Rate Plan Update
+```
+Changed Fields:
+- DefaultRates: 100 → 150 ❌ (Non-translatable)
+- GuestQuantity: 2 → 3 ❌ (Non-translatable)
+- RatePlanName: "Standard Rate" (no change)
+
+Result: ❌ SKIP TRANSLATION (No translatable fields changed)
+```
+
+---
+
 ## Field Change Detection ⭐
 
 ### Overview
@@ -1578,17 +1819,17 @@ TranslationHelper.IsTranslationEnabledForPropertyAsync(accommodationId, connecti
 
 All modules now support **conditional translation** - translation only runs when translatable fields are changed.
 
-| Module | Translatable Fields | Change Detection | Translation Helper |
-|--------|-------------------|------------------|-------------------|
-| **Property** | `AccommodationName` | ✅ Yes | `PropertyTranslationHelper` |
-| **Additional Detail** | `KeyCollectionComments`, `PetsAllowedComments` | ✅ Yes | `PropertyTranslationHelper` |
-| **Addon** | `ActivityName`, `ShortDescription`, `LongDescription`, `CancellationPolicy`, `GuaranteePolicy` | ✅ Yes | `AddonTranslationHelper` |
-| **Room** | `RoomName`, `RoomDescription` | ✅ Yes | `RoomTranslationHelper` |
-| **Rate Plan** | `RatePlanName`, `DisplayRatePlanName`, `Included`, `Highlight`, `MealDescription` | ✅ Yes | `RatePlanTranslationHelper` |
-| **Policy** | `PolicyName`, `CancellationPolicyDescription`, `BookingPolicyDescription`, `NoShowPolicyDescription` | ✅ Yes | `PolicyTranslationHelper` |
-| **Promotion** | `PromotionName`, `Description` | ✅ Yes | `PromotionTranslationHelper` |
-| **Property Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | ✅ Yes | `PropertyFacilitiesTranslationHelper` |
-| **Room Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | ✅ Yes | `RoomFacilitiesTranslationHelper` |
+| Module | Translatable Fields | Non-Translatable Fields | Change Detection | Translation Helper |
+|--------|-------------------|------------------------|------------------|-------------------|
+| **Property** | `AccommodationName` | `AccommodationTypeId`, `PropertyCategory`, `TimeZoneId`, `Country`, `AddressId`, `PostCode`, `CurrencyId`, `ContactNo`, `EmailId`, `Latitude`, `Longitude`, `WebSearch`, `HomeShopping` | ✅ Yes | `PropertyTranslationHelper` |
+| **Additional Detail** | `KeyCollectionComments`, `PetsAllowedComments` | All other fields (IDs, dates, booleans) | ✅ Yes | `PropertyTranslationHelper` |
+| **Addon** | `ActivityName`, `ShortDescription`, `LongDescription`, `CancellationPolicy`, `GuaranteePolicy` | `ActivityId`, `BookableWithRateplan`, `BookableIndividual`, `MaxBookableQty`, `CurrencyId`, `ActivityBookableTypeId`, `ActivityCategoryTypeIds`, `VariationValues`, `VariationPrices`, `Rates`, `StatusId`, `Image`, `TempImage` | ✅ Yes | `AddonTranslationHelper` |
+| **Room** | `RoomName`, `RoomDescription` | `CopyRoomId`, `RoomTypeId`, `ApartmentName`, `TotalGuest`, `RackRate`, `MaxPersons`, `NoOfBeds`, `BedSize`, `RoomSize`, `BathRoomDetail`, `RoomAddress`, `AllArrayBed`, `StayRoomId` | ✅ Yes | `RoomTranslationHelper` |
+| **Rate Plan** | `RatePlanName`, `DisplayRatePlanName`, `Included`, `Highlight`, `MealDescription` | `RatePlanId`, `RoomId`, `RatePlan_DefualtCurrencyId`, `RatePlan_OtherCurrencyId`, `DefaultRates`, `GuestQuantity`, `AdultQuantity`, `ChildQuantity`, `DefaultMinStay`, `DefaultMaxStay`, `BookingWindowFrom`, `BookingWindowTo`, `RateCode`, `MealId`, `MealTypeId`, all boolean flags, `PolicyId`, dates, etc. | ✅ Yes | `RatePlanTranslationHelper` |
+| **Policy** | `PolicyName`, `CancellationPolicyDescription`, `BookingPolicyDescription`, `NoShowPolicyDescription` | `AccommodationId`, `OwnerId`, `LanguageId`, `CancellationPolicyTypeId`, `BookingPolicyTypeId`, `NoShowPolicyTypeId` | ✅ Yes | `PolicyTranslationHelper` |
+| **Promotion** | `PromotionName`, `Description` | `PolicyId`, `PromotionTypeId`, all dates, `BlackDateTypeId`, `BlockDates`, all boolean flags, `VoucherCode`, `MinStay`, `MaxStay`, all ID fields, `DiscountValue`, `DiscountType`, etc. | ✅ Yes | `PromotionTranslationHelper` |
+| **Property Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | `Type`, `GroupId`, `FacilityIds`, `GroupIds`, `IsChecked`, `Comments`, `GroupFacilityIds` | ✅ Yes | `PropertyFacilitiesTranslationHelper` |
+| **Room Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | `Type`, `GroupId`, `FacilityIds`, `GroupIds`, `IsChecked`, `Comments`, `GroupFacilityIds`, `RoomId`, `RoomIdDrag`, `GFId` | ✅ Yes | `RoomFacilitiesTranslationHelper` |
 
 ### How It Works
 
