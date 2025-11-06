@@ -382,60 +382,6 @@ V3BookingEngine/
 
 ---
 
-## 🛠️ Setup Instructions
-
-### Prerequisites
-
-- **.NET 8.0 SDK**: [Download](https://dotnet.microsoft.com/download/dotnet/8.0)
-- **SQL Server**: SQL Server 2019 or later
-- **Visual Studio 2022** or **VS Code**: For development
-- **IIS** or **Kestrel**: For hosting
-
-### Installation Steps
-
-1. **Clone the Repository**
-   ```bash
-   git clone <repository-url>
-   cd V3BookingEngine
-   ```
-
-2. **Database Setup**
-   - Run database scripts from `Database_Script/` folder
-   - Update connection string in `appsettings.json`
-
-3. **Configure Application**
-   - Update `appsettings.json` with:
-     - Database connection string
-     - SMTP settings for email
-     - Cookie and session settings
-
-4. **Restore Dependencies**
-   ```bash
-   dotnet restore
-   ```
-
-5. **Build the Project**
-   ```bash
-   dotnet build
-   ```
-
-6. **Run the Application**
-   ```bash
-   dotnet run
-   ```
-
-7. **Access the Application**
-   - Navigate to `https://localhost:5001` or `http://localhost:5000`
-   - Login with default credentials (if configured)
-
-### Configuration Files
-
-- **appsettings.json**: Application settings, connection strings
-- **Program.cs**: Dependency injection, middleware configuration
-- **launchSettings.json**: Development server settings
-
----
-
 ## 📚 Tools & Libraries Used
 
 ### Development Tools
@@ -544,7 +490,7 @@ V3BookingEngine/
 
 ## 📝 Contributions
 
-### Developer: [Your Name]
+### Developer: [M.Farooq]
 
 **Role**: Full-Stack Developer  
 **Responsibilities**:
@@ -576,21 +522,19 @@ This project is proprietary software. All rights reserved.
 ## 🔗 Links
 
 - **Live Demo**: [https://v3-bw.bookingwhizz.com](https://v3-bw.bookingwhizz.com)
-- **Repository**: [GitHub Repository URL]
-- **Documentation**: [Link to detailed documentation]
+- **Repository**: https://github.com/imFarooq07/portfolio-projects/tree/main/
 
 ---
 
 ## 📞 Contact
 
 For questions or inquiries about this project, please contact:
-- **Email**: [Your Email]
-- **LinkedIn**: [Your LinkedIn Profile]
-- **Portfolio**: [Your Portfolio Website]
+- **Email**: imfarooq1995@gmail.com
+- **LinkedIn**: https://www.linkedin.com/in/muhammad-farooq-4598a3135 
 
 ---
 
 **Built with ❤️ using ASP.NET Core MVC**
 
-*Last Updated: December 2024*
+*Last Updated: Nov 2025*
 
