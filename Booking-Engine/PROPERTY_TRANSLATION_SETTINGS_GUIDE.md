@@ -35,10 +35,13 @@ This guide explains how property-level translation settings work in the BookingW
 
 ### Step 2: Login Process
 - When a user logs in, the system:
-  1. Gets the user's `PropertyId` from their account
-  2. Queries the `Accommodations` table to get `AutoTranslateEnabled` and `EnableForProperty` values
-  3. Adds these values to the user's authentication claims
-  4. Claims are available throughout the user's session
+  1. Executes `SP_Admin_Core` stored procedure with `LEFT JOIN` to `Accommodations` table
+  2. The query returns user data along with `AutoTranslateEnabled` and `EnableForProperty` from `Accommodations` table
+  3. User object is populated with all values (UserId, PropertyId, LanguageId, AutoTranslateEnabled, EnableForProperty, etc.)
+  4. All values are added to authentication claims (same way as PropertyId, UserId, etc.)
+  5. Claims are available throughout the user's session
+  
+**Important**: No separate query is needed! Translation settings are fetched in the same login query, just like other user properties.
 
 ### Step 3: Using the Settings
 - During property creation/update:
@@ -104,15 +107,17 @@ This guide explains how property-level translation settings work in the BookingW
 - [ ] Add `AutoTranslateEnabled` column to `Accommodations` table (BIT, DEFAULT 1)
 - [ ] Add `EnableForProperty` column to `Accommodations` table (BIT, DEFAULT 0)
 - [ ] Create indexes on both columns for performance
-- [ ] Create stored procedure `SP_Accommodations_GetTranslationSettings`
+- [ ] Update `SP_Admin_Core` stored procedure to include `LEFT JOIN` with `Accommodations` table in login query
 
 ### Backend Changes
+- [ ] Add `AutoTranslateEnabled` and `EnableForProperty` to `User` model (`CustomModel/User.cs`)
 - [ ] Add `AutoTranslateEnabled` and `EnableForProperty` to `CreatePropertyViewModel`
+- [ ] Update `UserService.ValidateUserAsync` to read translation settings from query result
+- [ ] Update `UserService.GetUserbyLoginIdAsync` to read translation settings from query result
 - [ ] Update `CreatePropertyAsync` method to save these values
 - [ ] Update `UpdatePropertyAsync` method to save these values
-- [ ] Create `GetPropertyTranslationSettingsAsync` method
-- [ ] Update `Login` method to get settings and add to claims
-- [ ] Update `VerifyOtp` method to get settings and add to claims
+- [ ] Update `Login` method to add translation settings to claims (from user object)
+- [ ] Update `VerifyOtp` method to add translation settings to claims (from user object)
 - [ ] Create `TranslationHelper` class with helper methods
 - [ ] Update stored procedure `SP_Accommodations_Core` to handle new columns
 
@@ -209,14 +214,158 @@ This guide explains how property-level translation settings work in the BookingW
 
 ---
 
+## Per-Language Settings
+
+### Overview
+
+Per-Language Settings allow property administrators to enable or disable translation for specific languages. This provides granular control over which languages should have automatic translation enabled.
+
+### Database Schema
+
+```sql
+-- Create PerLanguageSettings table
+CREATE TABLE PerLanguageSettings (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    AccommodationId INT NOT NULL,
+    LanguageId INT NOT NULL,
+    AutoTranslateEnabled BIT DEFAULT 1,
+    IsActive BIT DEFAULT 1,
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    UpdatedDate DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (AccommodationId) REFERENCES Accommodations(AccommodationId),
+    FOREIGN KEY (LanguageId) REFERENCES MultiLanguages(MultiLanguageId),
+    UNIQUE (AccommodationId, LanguageId)
+);
+```
+
+### Use Cases
+
+1. **Selective Language Translation**: Enable translation for Urdu and Arabic, but disable for French
+2. **Cost Control**: Only translate to languages that generate revenue
+3. **Quality Control**: Disable automatic translation for languages that need manual review
+4. **Gradual Rollout**: Enable translation for one language at a time
+
+### Implementation Flow
+
+```
+User Updates Property in Language (e.g., Urdu - LanguageId = 2)
+    ↓
+Check PerLanguageSettings table:
+    - AccommodationId = 11481
+    - LanguageId = 2
+    - AutoTranslateEnabled = true?
+    ↓
+If true → Run translation
+If false → Skip translation (save original text)
+    ↓
+If record doesn't exist → Use property-level AutoTranslateEnabled setting
+```
+
+### UI Considerations
+
+- Add language-specific toggles in property settings page
+- Show enabled/disabled status for each language
+- Allow bulk enable/disable for multiple languages
+- Display cost estimates based on enabled languages
+
+---
+
+## Translation History
+
+### Overview
+
+Translation History tracks when translations were created, updated, and by which method (automatic API or manual entry). This provides audit trail and helps with debugging translation issues.
+
+### Database Schema
+
+```sql
+-- Create TranslationHistory table
+CREATE TABLE TranslationHistory (
+    Id BIGINT PRIMARY KEY IDENTITY(1,1),
+    AccommodationId INT NOT NULL,
+    TableName VARCHAR(100) NOT NULL,  -- e.g., 'Accommodations_ML', 'Rooms_ML'
+    RecordId INT NOT NULL,            -- Primary key of the translated record
+    LanguageId INT NOT NULL,
+    FieldName VARCHAR(100) NOT NULL,   -- e.g., 'AccommodationName', 'RoomName'
+    OriginalText NVARCHAR(MAX),        -- Original English text
+    TranslatedText NVARCHAR(MAX),     -- Translated text
+    TranslationMethod VARCHAR(50),     -- 'API_AUTO', 'MANUAL', 'BULK_IMPORT'
+    TranslationProvider VARCHAR(50),  -- 'DeepL', 'LibreTranslate', 'Google', 'Manual'
+    ApiCallId VARCHAR(100),            -- For tracking API calls
+    TranslatedBy INT,                  -- UserId who triggered translation
+    TranslationDate DATETIME DEFAULT GETDATE(),
+    IsActive BIT DEFAULT 1,
+    FOREIGN KEY (AccommodationId) REFERENCES Accommodations(AccommodationId),
+    FOREIGN KEY (LanguageId) REFERENCES MultiLanguages(MultiLanguageId),
+    FOREIGN KEY (TranslatedBy) REFERENCES Users(UserId)
+);
+```
+
+### Use Cases
+
+1. **Audit Trail**: Track who translated what and when
+2. **Debugging**: Identify translation quality issues
+3. **Cost Tracking**: Monitor API usage per property/language
+4. **Revert Changes**: Restore previous translations
+5. **Analytics**: Analyze translation patterns and usage
+
+### Implementation Flow
+
+```
+Translation Occurs (API or Manual)
+    ↓
+Save to *_ML table (e.g., Accommodations_ML)
+    ↓
+Log to TranslationHistory table:
+    - TableName: 'Accommodations_ML'
+    - RecordId: 12345
+    - FieldName: 'AccommodationName'
+    - OriginalText: 'Grand Hotel'
+    - TranslatedText: 'گرانڈ ہوٹل'
+    - TranslationMethod: 'API_AUTO'
+    - TranslationProvider: 'DeepL'
+    - TranslatedBy: 101
+    - TranslationDate: GETDATE()
+    ↓
+History available for viewing/auditing
+```
+
+### UI Features
+
+1. **Translation History Page**: 
+   - Filter by property, language, date range
+   - Show original vs translated text
+   - Display translation method and provider
+   - Show who translated and when
+
+2. **Revert Functionality**:
+   - View previous translations
+   - Restore to a previous version
+   - Compare translations side-by-side
+
+3. **Analytics Dashboard**:
+   - Total translations per property
+   - API usage statistics
+   - Translation quality metrics
+   - Cost per language/property
+
+### Integration Points
+
+- **Translation Service**: Log after successful API translation
+- **Manual Translation**: Log when admin manually edits translation
+- **Bulk Import**: Log when translations are imported from file
+- **Update Operations**: Log when existing translation is updated
+
+---
+
 ## Future Enhancements
 
 ### Possible Additions
-1. **Per-Language Settings**: Enable/disable translation for specific languages
-2. **Translation Quality Settings**: Choose between different translation providers
-3. **Translation Review Workflow**: Require approval before publishing translations
-4. **Translation History**: Track when translations were created/updated
-5. **Bulk Settings Update**: Update settings for multiple properties at once
+1. **Translation Quality Settings**: Choose between different translation providers
+2. **Translation Review Workflow**: Require approval before publishing translations
+3. **Bulk Settings Update**: Update settings for multiple properties at once
+4. **Translation Analytics**: Advanced reporting and insights
+5. **Multi-Provider Support**: Use different providers for different languages
 
 ---
 
@@ -227,4 +376,5 @@ Property-level translation settings provide granular control over automatic tran
 ---
 
 **Last Updated**: 2024
+
 

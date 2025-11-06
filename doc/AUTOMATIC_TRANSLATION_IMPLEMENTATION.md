@@ -2833,77 +2833,148 @@ END
 
 ### Get Translation Settings After Login
 
-#### 1. Create Service Method to Get Property Translation Settings
+**Important**: `AutoTranslateEnabled` and `EnableForProperty` values are fetched in the **same login query** (`SP_Admin_Core`) by joining with the `Accommodations` table. No separate query is needed.
+
+#### 1. Update User Model
 
 ```csharp
-// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+// V3BookingEngine/CustomModel/User.cs
 
-public async Task<(bool AutoTranslateEnabled, bool EnableForProperty)> GetPropertyTranslationSettingsAsync(int accommodationId)
+namespace V3BookingEngine.CustomModel
 {
-    try
+    public class User
     {
-        await _connection.OpenAsync();
-
-        using var cmd = new SqlCommand("SP_Accommodations_GetTranslationSettings", _connection)
-        {
-            CommandType = CommandType.StoredProcedure
-        };
-
-        cmd.Parameters.AddWithValue("@p_AccommodationId", accommodationId);
-
-        using var reader = await cmd.ExecuteReaderAsync();
+        // ... existing fields ...
+        public int PropertyId { get; set; }
+        public int LanguageId { get; set; }
         
-        if (await reader.ReadAsync())
-        {
-            var autoTranslateEnabled = reader.IsDBNull("AutoTranslateEnabled") 
-                ? true 
-                : Convert.ToBoolean(reader["AutoTranslateEnabled"]);
-            
-            var enableForProperty = reader.IsDBNull("EnableForProperty") 
-                ? false 
-                : Convert.ToBoolean(reader["EnableForProperty"]);
-
-            return (autoTranslateEnabled, enableForProperty);
-        }
-
-        // Default values if property not found
-        return (true, false);
-    }
-    catch (Exception ex)
-    {
-        await _errorLoggingHelper.LogErrorAsync(_logger, ex, "GetPropertyTranslationSettingsAsync", accommodationId.ToString());
-        // Return default values on error
-        return (true, false);
-    }
-    finally
-    {
-        if (_connection.State == ConnectionState.Open)
-        {
-            await _connection.CloseAsync();
-        }
+        // ⭐ NEW: Add translation settings fields
+        public bool AutoTranslateEnabled { get; set; } = true;
+        public bool EnableForProperty { get; set; } = false;
+        
+        // ... other fields ...
     }
 }
 ```
 
-#### 2. Create Stored Procedure
+#### 2. Update SP_Admin_Core Stored Procedure
 
 ```sql
--- SP_Accommodations_GetTranslationSettings
-CREATE PROCEDURE [dbo].[SP_Accommodations_GetTranslationSettings]
-    @p_AccommodationId INT
+-- SP_Admin_Core (Update the SELECT query to include translation settings)
+-- In the login query (ProcedureType = 'V' or 'G'), add LEFT JOIN with Accommodations:
+
+ALTER PROCEDURE [dbo].[SP_Admin_Core]
+    @ProcedureType VARCHAR(10),
+    @SessionType VARCHAR(10) = '103',
+    @p_LoginId VARCHAR(100) = NULL,
+    @p_UserId INT = NULL,
+    -- ... other parameters ...
 AS
 BEGIN
     SET NOCOUNT ON;
 
-    SELECT 
-        ISNULL(AutoTranslateEnabled, 1) AS AutoTranslateEnabled,
-        ISNULL(EnableForProperty, 0) AS EnableForProperty
-    FROM Accommodations
-    WHERE AccommodationId = @p_AccommodationId
+    -- Login/Get User Query
+    IF @ProcedureType = 'V' OR @ProcedureType = 'G'
+    BEGIN
+        SELECT 
+            u.UserId,
+            u.UserName,
+            u.LoginId,
+            u.GroupId,
+            u.RoleId,
+            u.PropertyId,
+            u.LanguageId,
+            -- ... other user fields ...
+            
+            -- ⭐ NEW: Add translation settings from Accommodations table
+            ISNULL(a.AutoTranslateEnabled, 1) AS AutoTranslateEnabled,
+            ISNULL(a.EnableForProperty, 0) AS EnableForProperty
+        FROM Users u
+        LEFT JOIN Accommodations a ON u.PropertyId = a.AccommodationId
+        WHERE (@p_LoginId IS NOT NULL AND u.LoginId = @p_LoginId)
+           OR (@p_UserId IS NOT NULL AND u.UserId = @p_UserId)
+    END
+    
+    -- ... other procedure types ...
 END
 ```
 
-#### 3. Update Login Method to Add Claims
+#### 3. Update UserService to Read Translation Settings
+
+```csharp
+// V3BookingEngine/Services/AuthService/UserService.cs
+
+public async Task<User?> ValidateUserAsync(string username, string password)
+{
+    try
+    {
+        // ... existing code ...
+        
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        if (!reader.HasRows || !await reader.ReadAsync())
+        {
+            return new User { Message = "User not found" };
+        }
+
+        var user = new User
+        {
+            // ... existing fields ...
+            PropertyId = reader.IsDBNull("PropertyId") ? 0 : Convert.ToInt32(reader["PropertyId"]),
+            LanguageId = reader.IsDBNull("LanguageId") ? 1 : Convert.ToInt32(reader["LanguageId"]),
+            
+            // ⭐ NEW: Read translation settings from query result
+            AutoTranslateEnabled = reader.IsDBNull("AutoTranslateEnabled") 
+                ? true 
+                : Convert.ToBoolean(reader["AutoTranslateEnabled"]),
+            EnableForProperty = reader.IsDBNull("EnableForProperty") 
+                ? false 
+                : Convert.ToBoolean(reader["EnableForProperty"]),
+            
+            // ... other fields ...
+        };
+        
+        // ... password validation code ...
+        
+        return user;
+    }
+    catch (Exception ex)
+    {
+        // ... error handling ...
+    }
+}
+
+public async Task<User> GetUserbyLoginIdAsync(string username)
+{
+    try
+    {
+        // ... existing code ...
+        
+        var user = new User
+        {
+            // ... existing fields ...
+            
+            // ⭐ NEW: Read translation settings from query result
+            AutoTranslateEnabled = reader.IsDBNull("AutoTranslateEnabled") 
+                ? true 
+                : Convert.ToBoolean(reader["AutoTranslateEnabled"]),
+            EnableForProperty = reader.IsDBNull("EnableForProperty") 
+                ? false 
+                : Convert.ToBoolean(reader["EnableForProperty"]),
+            
+            // ... other fields ...
+        };
+        
+        return user;
+    }
+    catch (Exception ex)
+    {
+        // ... error handling ...
+    }
+}
+```
+
+#### 4. Update Login Method to Add Claims
 
 ```csharp
 // V3BookingEngine/Controllers/AccountController.cs
@@ -2924,14 +2995,7 @@ public async Task<IActionResult> Login(LoginViewModel model)
             return View(model);
         }
 
-        // Get user's property ID
-        var propertyId = user.PropertyId ?? 0;
-
-        // ⭐ NEW: Get translation settings from database
-        var (autoTranslateEnabled, enableForProperty) = await _propertyManagementService
-            .GetPropertyTranslationSettingsAsync(propertyId);
-
-        // Create claims
+        // Create claims (translation settings are already in user object from login query)
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -2941,11 +3005,11 @@ public async Task<IActionResult> Login(LoginViewModel model)
             new Claim("GroupId", user.GroupId.ToString()),
             new Claim("RoleId", user.RoleId.ToString()),
             new Claim("LanguageId", user.LanguageId.ToString()),
-            new Claim("PropertyId", propertyId.ToString()),
+            new Claim("PropertyId", user.PropertyId.ToString()),
             
-            // ⭐ NEW: Add translation settings to claims
-            new Claim("AutoTranslateEnabled", autoTranslateEnabled.ToString()),
-            new Claim("EnableForProperty", enableForProperty.ToString())
+            // ⭐ NEW: Add translation settings to claims (from user object, same as other claims)
+            new Claim("AutoTranslateEnabled", user.AutoTranslateEnabled.ToString()),
+            new Claim("EnableForProperty", user.EnableForProperty.ToString())
         };
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -2970,7 +3034,7 @@ public async Task<IActionResult> Login(LoginViewModel model)
 }
 ```
 
-#### 4. Update OTP Verification Method (if OTP is used)
+#### 5. Update OTP Verification Method (if OTP is used)
 
 ```csharp
 [HttpPost]
@@ -2980,7 +3044,7 @@ public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
     {
         // ... existing OTP verification code ...
 
-        // Get user
+        // Get user (translation settings are already in user object from query)
         var user = await _userService.GetUserbyLoginIdAsync(model.LoginId);
         
         if (user == null)
@@ -2988,14 +3052,7 @@ public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
             return Json(new { success = false, message = "User not found" });
         }
 
-        // Get user's property ID
-        var propertyId = user.PropertyId ?? 0;
-
-        // ⭐ NEW: Get translation settings from database
-        var (autoTranslateEnabled, enableForProperty) = await _propertyManagementService
-            .GetPropertyTranslationSettingsAsync(propertyId);
-
-        // Create claims
+        // Create claims (translation settings are already in user object from login query)
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
@@ -3005,11 +3062,11 @@ public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
             new Claim("GroupId", user.GroupId.ToString()),
             new Claim("RoleId", user.RoleId.ToString()),
             new Claim("LanguageId", user.LanguageId.ToString()),
-            new Claim("PropertyId", propertyId.ToString()),
+            new Claim("PropertyId", user.PropertyId.ToString()),
             
-            // ⭐ NEW: Add translation settings to claims
-            new Claim("AutoTranslateEnabled", autoTranslateEnabled.ToString()),
-            new Claim("EnableForProperty", enableForProperty.ToString())
+            // ⭐ NEW: Add translation settings to claims (from user object, same as other claims)
+            new Claim("AutoTranslateEnabled", user.AutoTranslateEnabled.ToString()),
+            new Claim("EnableForProperty", user.EnableForProperty.ToString())
         };
 
         var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
@@ -3029,7 +3086,7 @@ public async Task<IActionResult> VerifyOtp(VerifyOtpViewModel model)
 }
 ```
 
-#### 5. Helper Method to Get Translation Settings from Claims
+#### 6. Helper Method to Get Translation Settings from Claims
 
 ```csharp
 // V3BookingEngine/Helpers/TranslationHelper.cs
@@ -3095,7 +3152,7 @@ namespace V3BookingEngine.Helpers
 }
 ```
 
-#### 6. Update Controller to Use Claims
+#### 7. Update Controller to Use Claims
 
 ```csharp
 // V3BookingEngine/Controllers/PropertyController.cs
@@ -3149,7 +3206,7 @@ public async Task<IActionResult> UpdateProperty(int accommodationId)
 }
 ```
 
-#### 7. Update CreateProperty View (Optional - if you want user to edit these fields)
+#### 8. Update CreateProperty View (Optional - if you want user to edit these fields)
 
 ```html
 <!-- Views/Property/CreateProperty.cshtml -->
@@ -3184,13 +3241,14 @@ public async Task<IActionResult> UpdateProperty(int accommodationId)
 ```
 User Logs In
     ↓
-Get PropertyId from User
+SP_Admin_Core Query (with LEFT JOIN Accommodations)
     ↓
-Query Accommodations table: SELECT AutoTranslateEnabled, EnableForProperty WHERE AccommodationId = @PropertyId
+User Object Contains:
+    - UserId, PropertyId, LanguageId, etc.
+    - AutoTranslateEnabled (from Accommodations table)
+    - EnableForProperty (from Accommodations table)
     ↓
-Add to Claims:
-    - AutoTranslateEnabled (true/false)
-    - EnableForProperty (true/false)
+Add All Values to Claims (same way as PropertyId, UserId, etc.)
     ↓
 User Creates/Updates Property
     ↓
@@ -3198,8 +3256,10 @@ Get values from Claims (or form if editable)
     ↓
 Save to Accommodations table
     ↓
-Next Login: Values loaded from database again
+Next Login: Values loaded from database again (same query)
 ```
+
+**Key Point**: No separate query needed! Translation settings are fetched in the same login query by joining with `Accommodations` table, just like `PropertyId` and other user properties.
 
 ---
 
@@ -3212,6 +3272,216 @@ Next Login: Values loaded from database again
 
 ---
 
+## Per-Language Settings
+
+### Overview
+
+Per-Language Settings allow property administrators to enable or disable translation for specific languages. This provides granular control over which languages should have automatic translation enabled.
+
+### Database Schema
+
+```sql
+-- Create PerLanguageSettings table
+CREATE TABLE PerLanguageSettings (
+    Id INT PRIMARY KEY IDENTITY(1,1),
+    AccommodationId INT NOT NULL,
+    LanguageId INT NOT NULL,
+    AutoTranslateEnabled BIT DEFAULT 1,
+    IsActive BIT DEFAULT 1,
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    UpdatedDate DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (AccommodationId) REFERENCES Accommodations(AccommodationId),
+    FOREIGN KEY (LanguageId) REFERENCES MultiLanguages(MultiLanguageId),
+    UNIQUE (AccommodationId, LanguageId)
+);
+
+-- Index for performance
+CREATE INDEX IX_PerLanguageSettings_AccommodationId 
+ON PerLanguageSettings(AccommodationId);
+
+CREATE INDEX IX_PerLanguageSettings_LanguageId 
+ON PerLanguageSettings(LanguageId);
+```
+
+### Use Cases
+
+1. **Selective Language Translation**: Enable translation for Urdu and Arabic, but disable for French
+2. **Cost Control**: Only translate to languages that generate revenue
+3. **Quality Control**: Disable automatic translation for languages that need manual review
+4. **Gradual Rollout**: Enable translation for one language at a time
+
+### Implementation Flow
+
+```
+User Updates Property in Language (e.g., Urdu - LanguageId = 2)
+    ↓
+Check PerLanguageSettings table:
+    - AccommodationId = 11481
+    - LanguageId = 2
+    - AutoTranslateEnabled = true?
+    ↓
+If true → Run translation
+If false → Skip translation (save original text)
+    ↓
+If record doesn't exist → Use property-level AutoTranslateEnabled setting
+```
+
+### Service Method Signature
+
+```csharp
+// V3BookingEngine/Services/PropertyService/PropertyManagementService.cs
+
+public async Task<bool> IsTranslationEnabledForLanguageAsync(
+    int accommodationId, 
+    int languageId)
+{
+    // 1. Check PerLanguageSettings table first
+    // 2. If not found, fallback to property-level AutoTranslateEnabled
+    // 3. Return true/false
+}
+```
+
+### UI Considerations
+
+- Add language-specific toggles in property settings page
+- Show enabled/disabled status for each language
+- Allow bulk enable/disable for multiple languages
+- Display cost estimates based on enabled languages
+
+---
+
+## Translation History
+
+### Overview
+
+Translation History tracks when translations were created, updated, and by which method (automatic API or manual entry). This provides audit trail and helps with debugging translation issues.
+
+### Database Schema
+
+```sql
+-- Create TranslationHistory table
+CREATE TABLE TranslationHistory (
+    Id BIGINT PRIMARY KEY IDENTITY(1,1),
+    AccommodationId INT NOT NULL,
+    TableName VARCHAR(100) NOT NULL,  -- e.g., 'Accommodations_ML', 'Rooms_ML'
+    RecordId INT NOT NULL,            -- Primary key of the translated record
+    LanguageId INT NOT NULL,
+    FieldName VARCHAR(100) NOT NULL,   -- e.g., 'AccommodationName', 'RoomName'
+    OriginalText NVARCHAR(MAX),        -- Original English text
+    TranslatedText NVARCHAR(MAX),     -- Translated text
+    TranslationMethod VARCHAR(50),     -- 'API_AUTO', 'MANUAL', 'BULK_IMPORT'
+    TranslationProvider VARCHAR(50),  -- 'DeepL', 'LibreTranslate', 'Google', 'Manual'
+    ApiCallId VARCHAR(100),            -- For tracking API calls
+    TranslatedBy INT,                  -- UserId who triggered translation
+    TranslationDate DATETIME DEFAULT GETDATE(),
+    IsActive BIT DEFAULT 1,
+    FOREIGN KEY (AccommodationId) REFERENCES Accommodations(AccommodationId),
+    FOREIGN KEY (LanguageId) REFERENCES MultiLanguages(MultiLanguageId),
+    FOREIGN KEY (TranslatedBy) REFERENCES Users(UserId)
+);
+
+-- Indexes for performance
+CREATE INDEX IX_TranslationHistory_AccommodationId 
+ON TranslationHistory(AccommodationId);
+
+CREATE INDEX IX_TranslationHistory_TableName_RecordId 
+ON TranslationHistory(TableName, RecordId);
+
+CREATE INDEX IX_TranslationHistory_LanguageId 
+ON TranslationHistory(LanguageId);
+
+CREATE INDEX IX_TranslationHistory_TranslationDate 
+ON TranslationHistory(TranslationDate DESC);
+```
+
+### Use Cases
+
+1. **Audit Trail**: Track who translated what and when
+2. **Debugging**: Identify translation quality issues
+3. **Cost Tracking**: Monitor API usage per property/language
+4. **Revert Changes**: Restore previous translations
+5. **Analytics**: Analyze translation patterns and usage
+
+### Implementation Flow
+
+```
+Translation Occurs (API or Manual)
+    ↓
+Save to *_ML table (e.g., Accommodations_ML)
+    ↓
+Log to TranslationHistory table:
+    - TableName: 'Accommodations_ML'
+    - RecordId: 12345
+    - FieldName: 'AccommodationName'
+    - OriginalText: 'Grand Hotel'
+    - TranslatedText: 'گرانڈ ہوٹل'
+    - TranslationMethod: 'API_AUTO'
+    - TranslationProvider: 'DeepL'
+    - TranslatedBy: 101
+    - TranslationDate: GETDATE()
+    ↓
+History available for viewing/auditing
+```
+
+### Service Method Signature
+
+```csharp
+// V3BookingEngine/Services/TranslationService/TranslationHistoryService.cs
+
+public interface ITranslationHistoryService
+{
+    Task LogTranslationAsync(TranslationHistoryLog log);
+    Task<List<TranslationHistory>> GetHistoryByPropertyAsync(int accommodationId);
+    Task<List<TranslationHistory>> GetHistoryByLanguageAsync(int accommodationId, int languageId);
+    Task<List<TranslationHistory>> GetHistoryByFieldAsync(string tableName, int recordId, string fieldName);
+    Task<TranslationHistory> GetLatestTranslationAsync(string tableName, int recordId, string fieldName, int languageId);
+    Task RevertTranslationAsync(long historyId);
+}
+
+public class TranslationHistoryLog
+{
+    public int AccommodationId { get; set; }
+    public string TableName { get; set; }
+    public int RecordId { get; set; }
+    public int LanguageId { get; set; }
+    public string FieldName { get; set; }
+    public string OriginalText { get; set; }
+    public string TranslatedText { get; set; }
+    public string TranslationMethod { get; set; } // 'API_AUTO', 'MANUAL', 'BULK_IMPORT'
+    public string TranslationProvider { get; set; } // 'DeepL', 'LibreTranslate', 'Manual'
+    public string ApiCallId { get; set; }
+    public int TranslatedBy { get; set; }
+}
+```
+
+### UI Features
+
+1. **Translation History Page**: 
+   - Filter by property, language, date range
+   - Show original vs translated text
+   - Display translation method and provider
+   - Show who translated and when
+
+2. **Revert Functionality**:
+   - View previous translations
+   - Restore to a previous version
+   - Compare translations side-by-side
+
+3. **Analytics Dashboard**:
+   - Total translations per property
+   - API usage statistics
+   - Translation quality metrics
+   - Cost per language/property
+
+### Integration Points
+
+- **Translation Service**: Log after successful API translation
+- **Manual Translation**: Log when admin manually edits translation
+- **Bulk Import**: Log when translations are imported from file
+- **Update Operations**: Log when existing translation is updated
+
+---
+
 ## Next Steps
 
 1. ✅ Implement `FieldChangeDetector` helper
@@ -3221,6 +3491,10 @@ Next Login: Values loaded from database again
 5. ✅ Update controllers to check field changes
 6. ✅ Test with various scenarios
 7. ✅ Add logging for translation decisions
+8. ⏳ Implement Per-Language Settings table and service
+9. ⏳ Implement Translation History table and service
+10. ⏳ Create UI for managing per-language settings
+11. ⏳ Create UI for viewing translation history
 
 ---
 
