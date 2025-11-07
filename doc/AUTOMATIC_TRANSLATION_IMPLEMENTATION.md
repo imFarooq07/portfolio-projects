@@ -34,7 +34,6 @@ This guide provides the structure, architecture, and method signatures for imple
 | `Rooms` | `Rooms_ML` | Room data |
 | `RatePlans` | `RatePlans_ML` | Rate plan data |
 | `Activities` | `Activities_ML` | Activity data |
-| `Policies` | `Policies_ML` | Policy data |
 | `Promotions` | `Promotions_ML` | Promotion data |
 
 ---
@@ -157,15 +156,6 @@ V3BookingEngine/
 | Highlight | `Highlight` | ✅ YES |
 | Meal Description | `MealDescription` | ✅ YES |
 
-### Policy Module - Translatable Fields
-
-| Field Name | Model Property | Translatable |
-|------------|---------------|-------------|
-| Policy Name | `PolicyName` | ✅ YES |
-| Cancellation Policy Description | `CancellationPolicyDescription` | ✅ YES |
-| Booking Policy Description | `BookingPolicyDescription` | ✅ YES |
-| No-Show Policy Description | `NoShowPolicyDescription` | ✅ YES |
-
 ### Promotion Module - Translatable Fields
 
 | Field Name | Model Property | Translatable |
@@ -275,17 +265,6 @@ These fields are **NOT translatable**. If only these fields are changed, transla
 | Policy Start Dates | `PolicyStartDate` | Date list |
 | Policy End Dates | `PolicyEndDate` | Date list |
 | Policy Days (Monday-Sunday) | `PolicyMonday`, `PolicyTuesday`, etc. | Boolean flags |
-
-### Policy Module - Non-Translatable Fields
-
-| Field Name | Model Property | Reason |
-|------------|---------------|--------|
-| Accommodation ID | `AccommodationId` | ID field |
-| Owner ID | `OwnerId` | ID field |
-| Language ID | `LanguageId` | ID field |
-| Cancellation Policy Type | `CancellationPolicyTypeId` | ID field (lookup) |
-| Booking Policy Type | `BookingPolicyTypeId` | ID field (lookup) |
-| No-Show Policy Type | `NoShowPolicyTypeId` | ID field (lookup) |
 
 ### Promotion Module - Non-Translatable Fields
 
@@ -563,15 +542,6 @@ namespace V3BookingEngine.Helpers
             "Included",
             "Highlight",
             "MealDescription"
-        };
-
-        // Policy Module (CreatePolicyViewModel)
-        public static readonly List<string> PolicyTranslatableFields = new()
-        {
-            "PolicyName",
-            "CancellationPolicyDescription",
-            "BookingPolicyDescription",
-            "NoShowPolicyDescription"
         };
 
         // Promotion Module (CreatePromotionFormModel)
@@ -1174,108 +1144,7 @@ namespace V3BookingEngine.Services.PropertyService
 }
 ```
 
-### 7. Policy Translation Helper with Change Detection
-
-```csharp
-// V3BookingEngine/Services/PolicyManagementService/PolicyTranslationHelper.cs
-namespace V3BookingEngine.Services.PolicyManagementService
-{
-    public class PolicyTranslationHelper
-    {
-        private readonly ITranslationService _translationService;
-        private readonly ILanguageService _languageService;
-
-        /// <summary>
-        /// Checks if translatable fields changed for Policy
-        /// </summary>
-        public bool ShouldTranslatePolicy(
-            CreatePolicyViewModel newModel,
-            CreatePolicyViewModel? oldModel)
-        {
-            return FieldChangeDetector.HasTranslatableFieldsChanged(
-                newModel,
-                oldModel,
-                TranslatableFieldsConfig.PolicyTranslatableFields
-            );
-        }
-
-        /// <summary>
-        /// Translates policy fields ONLY if translatable fields changed
-        /// </summary>
-        public async Task<CreatePolicyViewModel> TranslatePolicyAsync(
-            CreatePolicyViewModel sourceModel,
-            int sourceLanguageId,
-            int targetLanguageId,
-            CreatePolicyViewModel? oldModel = null)
-        {
-            // ⭐ CHECK: Only translate if translatable fields changed
-            if (oldModel != null)
-            {
-                var shouldTranslate = ShouldTranslatePolicy(sourceModel, oldModel);
-                if (!shouldTranslate)
-                {
-                    return sourceModel;
-                }
-            }
-
-            var sourceLang = await _languageService.GetLanguageByIdAsync(sourceLanguageId);
-            var targetLang = await _languageService.GetLanguageByIdAsync(targetLanguageId);
-
-            if (sourceLang == null || targetLang == null)
-            {
-                return sourceModel;
-            }
-
-            var changedFields = FieldChangeDetector.GetChangedTranslatableFields(
-                sourceModel,
-                oldModel,
-                TranslatableFieldsConfig.PolicyTranslatableFields
-            );
-
-            // Translate only changed fields
-            if (changedFields.Contains("PolicyName") && !string.IsNullOrWhiteSpace(sourceModel.PolicyName))
-            {
-                sourceModel.PolicyName = await _translationService.TranslateTextAsync(
-                    sourceModel.PolicyName,
-                    sourceLang.LanguageCode,
-                    targetLang.LanguageCode
-                );
-            }
-
-            if (changedFields.Contains("CancellationPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.CancellationPolicyDescription))
-            {
-                sourceModel.CancellationPolicyDescription = await _translationService.TranslateTextAsync(
-                    sourceModel.CancellationPolicyDescription,
-                    sourceLang.LanguageCode,
-                    targetLang.LanguageCode
-                );
-            }
-
-            if (changedFields.Contains("BookingPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.BookingPolicyDescription))
-            {
-                sourceModel.BookingPolicyDescription = await _translationService.TranslateTextAsync(
-                    sourceModel.BookingPolicyDescription,
-                    sourceLang.LanguageCode,
-                    targetLang.LanguageCode
-                );
-            }
-
-            if (changedFields.Contains("NoShowPolicyDescription") && !string.IsNullOrWhiteSpace(sourceModel.NoShowPolicyDescription))
-            {
-                sourceModel.NoShowPolicyDescription = await _translationService.TranslateTextAsync(
-                    sourceModel.NoShowPolicyDescription,
-                    sourceLang.LanguageCode,
-                    targetLang.LanguageCode
-                );
-            }
-
-            return sourceModel;
-        }
-    }
-}
-```
-
-### 8. Promotion Translation Helper with Change Detection
+### 7. Promotion Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/PromotionManagementService/PromotionTranslationHelper.cs
@@ -1358,7 +1227,7 @@ namespace V3BookingEngine.Services.PromotionManagementService
 }
 ```
 
-### 9. Property Facilities Translation Helper with Change Detection
+### 8. Property Facilities Translation Helper with Change Detection
 
 ```csharp
 // V3BookingEngine/Services/PropertyService/PropertyFacilitiesTranslationHelper.cs
@@ -1780,7 +1649,6 @@ All modules now support **conditional translation** - translation only runs when
 | **Addon** | `ActivityName`, `ShortDescription`, `LongDescription`, `CancellationPolicy`, `GuaranteePolicy` | `ActivityId`, `BookableWithRateplan`, `BookableIndividual`, `MaxBookableQty`, `CurrencyId`, `ActivityBookableTypeId`, `ActivityCategoryTypeIds`, `VariationValues`, `VariationPrices`, `Rates`, `StatusId`, `Image`, `TempImage` | ✅ Yes | `AddonTranslationHelper` |
 | **Room** | `RoomName`, `RoomDescription` | `CopyRoomId`, `RoomTypeId`, `ApartmentName`, `TotalGuest`, `RackRate`, `MaxPersons`, `NoOfBeds`, `BedSize`, `RoomSize`, `BathRoomDetail`, `RoomAddress`, `AllArrayBed`, `StayRoomId` | ✅ Yes | `RoomTranslationHelper` |
 | **Rate Plan** | `RatePlanName`, `DisplayRatePlanName`, `Included`, `Highlight`, `MealDescription` | `RatePlanId`, `RoomId`, `RatePlan_DefualtCurrencyId`, `RatePlan_OtherCurrencyId`, `DefaultRates`, `GuestQuantity`, `AdultQuantity`, `ChildQuantity`, `DefaultMinStay`, `DefaultMaxStay`, `BookingWindowFrom`, `BookingWindowTo`, `RateCode`, `MealId`, `MealTypeId`, all boolean flags, `PolicyId`, dates, etc. | ✅ Yes | `RatePlanTranslationHelper` |
-| **Policy** | `PolicyName`, `CancellationPolicyDescription`, `BookingPolicyDescription`, `NoShowPolicyDescription` | `AccommodationId`, `OwnerId`, `LanguageId`, `CancellationPolicyTypeId`, `BookingPolicyTypeId`, `NoShowPolicyTypeId` | ✅ Yes | `PolicyTranslationHelper` |
 | **Promotion** | `PromotionName`, `Description` | `PolicyId`, `PromotionTypeId`, all dates, `BlackDateTypeId`, `BlockDates`, all boolean flags, `VoucherCode`, `MinStay`, `MaxStay`, all ID fields, `DiscountValue`, `DiscountType`, etc. | ✅ Yes | `PromotionTranslationHelper` |
 | **Property Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | `Type`, `GroupId`, `FacilityIds`, `GroupIds`, `IsChecked`, `Comments`, `GroupFacilityIds` | ✅ Yes | `PropertyFacilitiesTranslationHelper` |
 | **Room Facilities** | `GroupName`, `FacilityName`, `OtherGroupName`, `OtherFacilityName` | `Type`, `GroupId`, `FacilityIds`, `GroupIds`, `IsChecked`, `Comments`, `GroupFacilityIds`, `RoomId`, `RoomIdDrag`, `GFId` | ✅ Yes | `RoomFacilitiesTranslationHelper` |
