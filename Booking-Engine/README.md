@@ -5,7 +5,7 @@
 [![SQL Server](https://img.shields.io/badge/Database-SQL%20Server-red.svg)](https://www.microsoft.com/sql-server)
 [![License](https://img.shields.io/badge/License-Proprietary-lightgrey.svg)]()
 
-> A comprehensive, enterprise-grade hotel booking and property management system built with ASP.NET Core MVC, featuring advanced booking management, room inventory control, promotion management, and role-based access control.
+> A comprehensive, enterprise-grade hotel booking and property management system built with ASP.NET Core MVC, featuring advanced booking management, room inventory control, promotion management, multi-language translation support, and role-based access control.
 
 ---
 
@@ -39,6 +39,7 @@
 - **Promotion Management**: Create and manage promotional offers and discounts
 - **User & Role Management**: Implement role-based access control with hierarchical permissions
 - **Policy Management**: Configure cancellation policies, payment terms, and booking rules
+- **Multi-Language Translation**: Automatic translation system with DeepL API integration for multiple languages
 - **Dashboard Analytics**: Real-time metrics and reporting for business insights
 
 ---
@@ -55,6 +56,7 @@
 - **Email Integration**: Automated email notifications for bookings and confirmations
 - **Image Management**: Upload and manage property and room images
 - **Bulk Operations**: Bulk inventory updates and batch processing
+- **Multi-Language Support**: Dynamic language selection with cookie persistence and claims-based context
 
 ### 🔐 Security Features
 
@@ -73,6 +75,21 @@
 - **Booking Validation**: Business rule validation for check-in/check-out dates
 - **Inventory Synchronization**: Real-time sync between bookings and availability
 - **Abandoned Booking Tracking**: Monitor and recover abandoned reservations
+
+### 🌐 Multi-Language Translation Features
+
+- **Automatic Translation**: DeepL API integration for automatic translation of translatable fields
+- **Master Switch Control**: Single `AutoTranslateEnabled` master switch per property to control overall translation
+- **Dynamic Language Selection**: Language dropdown in header with searchable interface, flag icons, and cookie-based persistence
+- **Per-Language Settings**: Granular control to enable/disable translation for specific languages per property (with fallback to master switch)
+- **Auto-Initialization**: Automatic initialization of per-language settings when master switch is enabled
+- **Translation History**: Complete audit trail of all translations with search, filter, and export
+- **Translation Analytics**: Dashboard with charts showing translation statistics and cost tracking
+- **Revert Functionality**: Restore previous translation versions from history
+- **Field Change Detection**: Translation only runs when translatable fields are changed (optimized performance)
+- **Parallel Processing**: Fast translation using Task.WhenAll for multiple languages
+- **Multi-Module Support**: Translation for Property, Room, Rate Plan, Promotion, Addon, and Facilities
+- **Consolidated Management**: Single page (`AllPropertiesLanguageSettings`) to manage translation settings for all properties
 
 ---
 
@@ -103,9 +120,16 @@
 
 ### Infrastructure
 - **Dependency Injection**: Built-in IoC container
-- **Middleware Pipeline**: Custom middleware for authentication, exceptions, sidebar data
+- **Middleware Pipeline**: Custom middleware for authentication, exceptions, sidebar data, language claims
 - **Service Layer Pattern**: Separation of concerns
 - **Repository Pattern**: (Via Stored Procedures)
+
+### Translation & Localization
+- **DeepL API**: Professional translation service integration
+- **Multi-Language Tables**: `*_ML` tables for storing translated content
+- **Language Service**: Dynamic language loading from database
+- **Translation Helpers**: Module-specific translation helper classes
+- **Translation History Service**: Complete audit trail and analytics
 
 ---
 
@@ -289,6 +313,56 @@ User Request → Controller → Service Layer → Stored Procedure → Database
 - `Services/DashboardService/DashboardService.cs`
 - `Views/Home/Dashboard.cshtml`
 
+### 9. **Multi-Language Translation Management**
+- **Automatic Translation**: DeepL API integration for automatic translation
+- **Master Switch**: Single `AutoTranslateEnabled` field per property to control overall translation feature
+- **Language Selection**: Dynamic language dropdown with searchable interface, flag icons, and cookie persistence
+- **Translation History**: Complete audit trail with search, filters, and export
+- **Translation Analytics**: Dashboard with charts and cost tracking
+- **Per-Language Settings**: Granular control to enable/disable translation per language per property (with fallback to master switch)
+- **Auto-Initialization**: Automatic initialization of per-language settings when master switch is enabled
+- **Consolidated Management**: Single page to manage translation settings for all properties with server-side pagination
+- **Revert Translation**: Restore previous translation versions
+- **Bulk Translation**: Translate existing room groups and facilities
+- **Supported Modules**: Property, Room, Rate Plan, Promotion, Addon, Facilities
+
+**Translatable Fields:**
+- **Property**: AccommodationName, KeyCollectionComments, PetsAllowedComments
+- **Addon**: ActivityName, ShortDescription, CancellationPolicy, GuaranteePolicy, LongDescription
+- **Room**: RoomName, ApartmentName, RoomDescription
+- **Rate Plan**: RatePlanName, DisplayRatePlanName, Included, Highlight, MealDescription
+- **Promotion**: PromotionName, Description
+- **Facilities**: GroupName, FacilityName, OtherGroupName, OtherFacilityName
+
+**Key Files:**
+- `Controllers/PropertyController.cs` (TranslationHistory, TranslationAnalytics, AllPropertiesLanguageSettings, UpdatePropertyAutoTranslateEnabled)
+- `Services/TranslationService/TranslationService.cs`
+- `Services/TranslationService/TranslationHistoryService.cs`
+- `Services/TranslationService/TranslationAnalyticsService.cs`
+- `Services/LanguageService/LanguageService.cs`
+- `Services/PropertyService/PropertyManagementService.cs` (UpdateAutoTranslateEnabledAsync, UpdatePerLanguageSettingAsync, InitializePerLanguageSettingsAsync, IsTranslationEnabledForLanguageAsync)
+- `Services/PropertyService/PropertyTranslationHelper.cs`
+- `Services/PropertyService/AddonTranslationHelper.cs`
+- `Services/RoomManagementService/RoomTranslationHelper.cs`
+- `Services/RoomManagementService/RatePlanTranslationHelper.cs`
+- `Services/PromotionManagementService/PromotionTranslationHelper.cs`
+- `Helpers/FieldChangeDetector.cs` (Field change detection for optimized translation)
+- `Helpers/TranslatableFieldsConfig.cs` (Configuration of translatable fields per module)
+- `Helpers/TranslationHelper.cs` (GetAutoTranslateEnabled from claims)
+- `Middleware/LanguageClaimUpdateMiddleware.cs`
+- `Views/Property/TranslationHistory.cshtml`
+- `Views/Property/TranslationAnalytics.cshtml`
+- `Views/Property/AllPropertiesLanguageSettings.cshtml` (Consolidated page with master switch and per-language controls)
+- `wwwroot/js/language-selector.js` (Searchable language dropdown with flags)
+
+**URLs:**
+- Translation History: `/Property/TranslationHistory`
+- Translation Analytics: `/Property/TranslationAnalytics`
+- All Properties Language Settings: `/Property/AllPropertiesLanguageSettings`
+- Update Master Switch: `/Property/UpdatePropertyAutoTranslateEnabled` (POST)
+- Update Per-Language Setting: `/Property/UpdatePropertyLanguageSetting` (POST)
+- Get Languages API: `/Home/GetLanguages`
+
 ---
 
 ## 🔒 Security Features
@@ -360,11 +434,32 @@ V3BookingEngine/
 ├── Middleware/               # Custom Middleware
 │   ├── GlobalExceptionMiddleware.cs
 │   ├── AuthenticationRehydrationMiddleware.cs
-│   └── SidebarDataMiddleware.cs
+│   ├── SidebarDataMiddleware.cs
+│   └── LanguageClaimUpdateMiddleware.cs
+│
+├── Services/                 # Business Logic Layer
+│   ├── TranslationService/   # Translation Services
+│   │   ├── TranslationService.cs
+│   │   ├── TranslationHistoryService.cs
+│   │   ├── TranslationAnalyticsService.cs
+│   │   └── Providers/
+│   │       └── DeepLTranslationProvider.cs
+│   ├── LanguageService/      # Language Management
+│   │   └── LanguageService.cs
+│   ├── PropertyService/      # Property Services
+│   │   ├── PropertyTranslationHelper.cs
+│   │   └── AddonTranslationHelper.cs
+│   ├── RoomManagementService/
+│   │   ├── RoomTranslationHelper.cs
+│   │   └── RatePlanTranslationHelper.cs
+│   └── PromotionManagementService/
+│       └── PromotionTranslationHelper.cs
 │
 ├── Helpers/                  # Utility Classes
 │   ├── ErrorLoggingHelper.cs
-│   └── ServiceRegistration.cs
+│   ├── ServiceRegistration.cs
+│   ├── TranslatableFieldsConfig.cs
+│   └── FieldChangeDetector.cs
 │
 ├── Attributes/               # Custom Validation Attributes
 │   ├── AmountValidationAttribute.cs
@@ -413,6 +508,7 @@ V3BookingEngine/
 | **Summernote** | Rich text editor |
 | **SweetAlert2** | Alert dialogs |
 | **Chart.js** | Data visualization |
+| **DeepL API** | Professional translation service |
 
 ---
 
@@ -449,6 +545,21 @@ V3BookingEngine/
    - Stored procedure usage for database operations
    - Async/await patterns for scalability
    - Session caching for permissions
+   - Parallel translation processing using Task.WhenAll
+
+7. **✅ Multi-Language Translation System**
+   - DeepL API integration for automatic translation
+   - Master switch (`AutoTranslateEnabled`) for property-level translation control
+   - Dynamic language selection with searchable dropdown, flag icons, and cookie persistence
+   - Translation history tracking with complete audit trail
+   - Translation analytics dashboard with cost tracking
+   - Per-language translation settings per property with fallback to master switch
+   - Auto-initialization of per-language settings when master switch is enabled
+   - Consolidated management page (`AllPropertiesLanguageSettings`) with server-side pagination
+   - Revert translation functionality
+   - Field change detection for optimized translation (only translates when fields change)
+   - Parallel processing using Task.WhenAll for fast multi-language translation
+   - Support for 6+ modules (Property, Room, Rate Plan, Promotion, Addon, Facilities)
 
 ### Business Logic Achievements
 
@@ -457,6 +568,7 @@ V3BookingEngine/
 3. **Bulk Inventory Management**: Batch updates for inventory operations
 4. **Abandoned Booking Recovery**: Track and recover lost bookings
 5. **Manual Booking Creation**: Admin capability to create bookings manually
+6. **Multi-Language Translation System**: Complete translation infrastructure with DeepL API integration, master switch control, per-language settings with fallback logic, auto-initialization, and consolidated management page. Supports automatic translation for 6+ modules with history tracking, analytics, and field change detection for optimized performance
 
 ---
 
@@ -500,6 +612,7 @@ V3BookingEngine/
 - Security implementation (Authentication, Authorization)
 - Error handling and logging
 - UI/UX improvements
+- Multi-language translation system implementation
 
 ### Key Contributions
 
@@ -510,6 +623,7 @@ V3BookingEngine/
 5. **UI Consistency**: Converted all forms to AJAX with SweetAlert2
 6. **Session Management**: Implemented sliding expiration and graceful session handling
 7. **Authorization System**: Global authorization with page-level permissions
+8. **Multi-Language Translation**: Complete translation system with DeepL API, master switch control, per-language settings with fallback logic, auto-initialization, consolidated management page (`AllPropertiesLanguageSettings`), translation history, analytics dashboard, field change detection, and revert functionality
 
 ---
 

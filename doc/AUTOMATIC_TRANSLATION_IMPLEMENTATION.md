@@ -300,23 +300,29 @@ All `*_ML` tables follow this pattern:
 ### Database Schema
 
 The `Accommodations` table includes:
-- `AutoTranslateEnabled` (BIT) - Global translation toggle for property
-- `EnableForProperty` (BIT) - Property-specific translation enable flag
+- `AutoTranslateEnabled` (BIT) - **Master Switch** for property-level translation control
 
 ### How It Works
 
 1. **Login**: Settings are fetched from `Accommodations` table via `SP_Admin_Core`
-2. **Claims**: Values are stored in user claims during login
-3. **Usage**: Controllers check claims to determine if translation should run
-4. **Update**: Values can be updated via `UpdateProperty` page
+2. **Claims**: `AutoTranslateEnabled` value is stored in user claims during login
+3. **Usage**: Controllers check `AutoTranslateEnabled` from claims to determine if translation should run
+4. **Update**: Master switch can be updated via:
+   - `UpdateProperty` page (individual property)
+   - `AllPropertiesLanguageSettings` page (master switch toggle per property)
 
 ### Translation Conditions
 
 Translation runs only when:
-1. `AutoTranslateEnabled` = true (in claims)
-2. `EnableForProperty` = true (in claims)
-3. At least one translatable field has changed
-4. Target language is enabled in `PerLanguageSettings`
+1. `AutoTranslateEnabled` = true (master switch enabled)
+2. At least one translatable field has changed (field change detection)
+3. Target language is enabled in `PerLanguageSettings` (or falls back to master switch if not set)
+
+### Master Switch Logic
+
+- **Single Source of Truth**: `AutoTranslateEnabled` is the only property-level control
+- **Auto-Initialization**: When master switch is enabled, `PerLanguageSettings` are automatically initialized for all active languages (default: enabled)
+- **Fallback Logic**: If `PerLanguageSettings` doesn't exist for a language, system falls back to property-level `AutoTranslateEnabled`
 
 ---
 
@@ -331,29 +337,50 @@ Translation runs only when:
 | `Id` | INT | Primary key |
 | `AccommodationId` | INT | Foreign key to Accommodations |
 | `LanguageId` | INT | Foreign key to MultiLanguages |
-| `AutoTranslateEnabled` | BIT | Enable/disable translation for this language |
+| `AutoTranslateEnabled` | BIT | Enable/disable translation for this specific language |
 | `IsActive` | BIT | Active status |
-| `CreatedDate` | DATETIME | Creation timestamp |
-| `UpdatedDate` | DATETIME | Last update timestamp |
 
 **Unique Constraint**: `(AccommodationId, LanguageId)`
 
+**Note**: `CreatedDate` and `UpdatedDate` columns are not present in the table.
+
 ### Purpose
 
-Allows property administrators to enable/disable translation for **specific languages**. For example:
+Allows property administrators to enable/disable translation for **specific languages** per property. This provides granular control over which languages should be translated. For example:
 - Enable translation for Arabic ✅
 - Disable translation for Turkish ❌
 
+### Fallback Logic
+
+The system uses intelligent fallback logic:
+1. **If `PerLanguageSettings` exists** for a language → Use that setting
+2. **If `PerLanguageSettings` doesn't exist** for a language → Fallback to property-level `AutoTranslateEnabled` master switch
+
+This ensures that:
+- New properties automatically use master switch for all languages
+- Existing properties can have granular per-language control
+- System gracefully handles missing per-language settings
+
+### Auto-Initialization
+
+When the master switch (`AutoTranslateEnabled`) is enabled for a property:
+- System automatically initializes `PerLanguageSettings` for all active languages
+- Default value: `AutoTranslateEnabled = true` (all languages enabled)
+- Can be customized per language after initialization
+
 ### UI
 
-**Page**: Per-Language Settings  
-**URL**: `/Property/PerLanguageSettings`  
-**Controller**: `PropertyController.PerLanguageSettings()`  
+**Page**: All Properties Language Settings (Consolidated Management Page)  
+**URL**: `/Property/AllPropertiesLanguageSettings`  
+**Controller**: `PropertyController.AllPropertiesLanguageSettings()`  
 **Features**:
-- Lists all available languages
-- Shows current enable/disable status
-- Allows toggling per language
-- Provides bulk initialize option
+- **Card-based UI**: User-friendly interface with no horizontal scrolling
+- **Server-side Pagination**: Efficient handling of large property lists
+- **Master Switch**: Toggle per property to enable/disable translation globally
+- **Per-Language Toggles**: Individual language controls within each property card
+- **Search & Filters**: Filter by property name/ID, status, and group
+- **Initialize Section**: Bulk initialize all languages for current property (default enabled/disabled)
+- **Responsive Design**: Mobile-friendly layout with language grid
 
 ---
 
@@ -641,15 +668,20 @@ app.UseAuthorization();
 - Controller: `PropertyController.TranslationAnalytics()`
 - View: `V3BookingEngine/Views/Property/TranslationAnalytics.cshtml`
 
-**Per-Language Settings**:
-- View: `V3BookingEngine/Views/Property/PerLanguageSettings.cshtml`
-- Controller: `V3BookingEngine/Controllers/PropertyController.cs` (PerLanguageSettings methods)
-- Service: `V3BookingEngine/Services/PropertyService/PropertyManagementService.cs`
+**Per-Language Settings (Consolidated)**:
+- View: `V3BookingEngine/Views/Property/AllPropertiesLanguageSettings.cshtml` (Card-based UI with master switch)
+- Controller: `V3BookingEngine/Controllers/PropertyController.cs` (AllPropertiesLanguageSettings, UpdatePropertyAutoTranslateEnabled, UpdatePropertyLanguageSetting)
+- Service: `V3BookingEngine/Services/PropertyService/PropertyManagementService.cs` (UpdateAutoTranslateEnabledAsync, UpdatePerLanguageSettingAsync, InitializePerLanguageSettingsAsync, IsTranslationEnabledForLanguageAsync)
 
 **Translation Configuration**:
-- Helper: `V3BookingEngine/Helpers/TranslatableFieldsConfig.cs`
+- Helper: `V3BookingEngine/Helpers/TranslatableFieldsConfig.cs` (Defines translatable fields per module)
 - Provider: `V3BookingEngine/Services/TranslationService/Providers/DeepLTranslationProvider.cs`
-- Helper: `V3BookingEngine/Helpers/FieldChangeDetector.cs`
+- Helper: `V3BookingEngine/Helpers/FieldChangeDetector.cs` (Detects field changes for optimized translation)
+- Helper: `V3BookingEngine/Helpers/TranslationHelper.cs` (GetAutoTranslateEnabled from claims)
+
+**Language Selection**:
+- Frontend: `V3BookingEngine/wwwroot/js/language-selector.js` (Searchable dropdown with flag icons)
+- CSS: `V3BookingEngine/wwwroot/css/language-selector.css` (Styling for searchable dropdown)
 
 ---
 
@@ -671,11 +703,13 @@ app.UseAuthorization();
 
 ### Translation Not Running
 
-1. **Check Settings**: Verify `AutoTranslateEnabled` and `EnableForProperty` are true
-2. **Check Field Changes**: Ensure translatable fields are actually changed
-3. **Check Per-Language Settings**: Verify target language is enabled
-4. **Check API Key**: Verify DeepL API key is valid
-5. **Check Logs**: Look for translation error logs
+1. **Check Master Switch**: Verify `AutoTranslateEnabled` is true (in claims or database)
+2. **Check Field Changes**: Ensure translatable fields are actually changed (field change detection)
+3. **Check Per-Language Settings**: Verify target language is enabled (or falls back to master switch)
+4. **Check Auto-Initialization**: If master switch is enabled but no per-language settings exist, they should auto-initialize
+5. **Check API Key**: Verify DeepL API key is valid
+6. **Check Logs**: Look for translation error logs
+7. **Check Old Model**: For updates, ensure old model is available for comparison
 
 ---
 
@@ -683,16 +717,20 @@ app.UseAuthorization();
 
 This implementation provides:
 
-✅ **Dynamic Language Selection**: Languages loaded from database  
+✅ **Dynamic Language Selection**: Languages loaded from database with searchable dropdown and flag icons  
 ✅ **Cookie Persistence**: Selected language persists across sessions  
-✅ **Claims Integration**: LanguageId available in all controllers  
+✅ **Claims Integration**: LanguageId and AutoTranslateEnabled available in all controllers  
+✅ **Master Switch Control**: Single `AutoTranslateEnabled` field per property to control overall translation  
 ✅ **Automatic Translation**: DeepL API integration with field change detection  
-✅ **Per-Language Control**: Enable/disable translation per language  
+✅ **Per-Language Control**: Granular enable/disable translation per language with fallback to master switch  
+✅ **Auto-Initialization**: Automatic initialization of per-language settings when master switch is enabled  
+✅ **Consolidated Management**: Single page (`AllPropertiesLanguageSettings`) to manage all properties with server-side pagination  
 ✅ **Translation History**: Complete audit trail of all translations  
-✅ **Performance Optimized**: Translation only runs when needed  
+✅ **Performance Optimized**: Translation only runs when fields change (field change detection)  
 ✅ **Analytics Dashboard**: Comprehensive translation statistics and cost tracking  
 ✅ **Revert Functionality**: Restore previous translations  
 ✅ **Export Functionality**: CSV/Excel export with filters  
+✅ **Parallel Processing**: Fast translation using Task.WhenAll for multiple languages  
 
 ---
 
@@ -716,15 +754,23 @@ This implementation provides:
 
 3. **Per-Language Settings** ✅
    - Enable/disable translation per language
-   - UI for managing settings
-   - Bulk initialize option
+   - Consolidated management page (`AllPropertiesLanguageSettings`) with card-based UI
+   - Master switch per property
+   - Per-language toggles within property cards
+   - Auto-initialization when master switch is enabled
+   - Fallback logic to master switch if per-language setting doesn't exist
+   - Server-side pagination for large property lists
+   - Search and filter functionality
 
 4. **Automatic Translation** ✅
    - DeepL API integration
-   - Field change detection
-   - Multi-language translation
+   - Master switch control (`AutoTranslateEnabled`)
+   - Field change detection (only translates when fields change)
+   - Multi-language translation with parallel processing (Task.WhenAll)
    - Translation logging to history
-   - Parallel processing for faster translation
+   - Per-language settings with fallback logic
+   - Auto-initialization of per-language settings
+   - English always included in translation targets (if current language is not English)
 
 5. **Translation Analytics Dashboard** ✅
    - Total translations count
@@ -765,7 +811,9 @@ This implementation provides:
 | Update Promotion | `/PromotionManagement/UpdatePromotion` | GET/POST |
 | Translation History | `/Property/TranslationHistory` | GET |
 | Translation Analytics | `/Property/TranslationAnalytics` | GET |
-| Per-Language Settings | `/Property/PerLanguageSettings` | GET/POST |
+| All Properties Language Settings | `/Property/AllPropertiesLanguageSettings` | GET |
+| Update Master Switch | `/Property/UpdatePropertyAutoTranslateEnabled` | POST |
+| Update Per-Language Setting | `/Property/UpdatePropertyLanguageSetting` | POST |
 | Revert Translation | `/Property/RevertTranslation` | POST |
 | Export History (CSV) | `/Property/ExportTranslationHistory?format=csv` | GET |
 | Export History (Excel) | `/Property/ExportTranslationHistory?format=excel` | GET |
@@ -774,7 +822,7 @@ This implementation provides:
 ### Database Tables Required
 
 1. ✅ `MultiLanguages` - Language master data
-2. ✅ `Accommodations` - Main property table (with `AutoTranslateEnabled`, `EnableForProperty`)
+2. ✅ `Accommodations` - Main property table (with `AutoTranslateEnabled` master switch)
 3. ✅ `Accommodations_ML` - Multi-language property data
 4. ✅ `Rooms` - Main room table
 5. ✅ `Rooms_ML` - Multi-language room data
@@ -793,7 +841,7 @@ This implementation provides:
 
 ### Key Stored Procedures
 
-1. ✅ `SP_Admin_Core` - Must include `AutoTranslateEnabled` and `EnableForProperty` via LEFT JOIN
+1. ✅ `SP_Admin_Core` - Must include `AutoTranslateEnabled` via LEFT JOIN (master switch)
 2. ✅ `SP_Accommodations_Core` - Must support `@p_MultiLanguageId` parameter
 3. ✅ `SP_FacilitiesManagement_Core` - Must support `@p_MultiLanguageId` parameter
 4. ✅ `SP_RoomsManagement_Core` - Must support `@p_MultiLanguageId` parameter
@@ -802,20 +850,35 @@ This implementation provides:
 ---
 
 **Last Updated**: 2025  
-**Version**: 2.0  
+**Version**: 3.0  
 **Status**: Production Ready ✅  
 **Implementation Status**: ✅ **ALL FEATURES FULLY IMPLEMENTED AND WORKING**
 
 ### Summary of Implemented Features
 
-✅ **Language Selection System** - Complete with cookie persistence and claims update  
-✅ **Automatic Translation** - DeepL API integration with field change detection  
-✅ **Per-Language Settings** - Enable/disable translation per language  
+✅ **Language Selection System** - Complete with searchable dropdown, flag icons, cookie persistence, and claims update  
+✅ **Master Switch Control** - Single `AutoTranslateEnabled` field per property for overall translation control  
+✅ **Automatic Translation** - DeepL API integration with field change detection and parallel processing  
+✅ **Per-Language Settings** - Granular enable/disable translation per language with fallback to master switch  
+✅ **Auto-Initialization** - Automatic initialization of per-language settings when master switch is enabled  
+✅ **Consolidated Management** - Single page (`AllPropertiesLanguageSettings`) with card-based UI and server-side pagination  
 ✅ **Translation History** - Complete with filters, search, pagination, export, revert  
 ✅ **Translation Analytics** - Dashboard with charts and statistics  
 ✅ **Revert Functionality** - Restore previous translations  
 ✅ **Export Functionality** - CSV and Excel export  
 ✅ **Search & Filters** - Date range, field, language, text search  
-✅ **Pagination** - Page navigation for large datasets  
+✅ **Pagination** - Server-side pagination for large datasets  
+✅ **Field Change Detection** - Optimized translation (only runs when translatable fields change)  
+✅ **Parallel Processing** - Fast multi-language translation using Task.WhenAll  
+
+### Recent Updates (Version 3.0)
+
+- ✅ **Simplified Master Switch**: Removed redundant `EnableForProperty`, now using only `AutoTranslateEnabled`
+- ✅ **Consolidated Management Page**: Merged separate pages into single `AllPropertiesLanguageSettings` page
+- ✅ **Auto-Initialization**: Automatic setup of per-language settings when master switch is enabled
+- ✅ **Fallback Logic**: Intelligent fallback to master switch if per-language setting doesn't exist
+- ✅ **Searchable Language Dropdown**: Added search functionality and flag icons to language selector
+- ✅ **Card-Based UI**: User-friendly interface with no horizontal scrolling
+- ✅ **Server-Side Pagination**: Efficient handling of large property lists
 
 **All planned features have been successfully implemented and are production-ready!** 🎉
