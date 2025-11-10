@@ -12,19 +12,19 @@ This guide explains how the language system works, which fields are translated, 
 
 ## 📋 Table of Contents
 
-1. [Overview - Language System Kya Hai?](#overview---language-system-kya-hai)
-2. [Language Selection - User Kaise Language Change Kare?](#language-selection---user-kaise-language-change-kare)
-3. [Translation Fields - Konsa Fields Translate Hote Hain?](#translation-fields---konsa-fields-translate-hote-hain)
-4. [Master Switch - Translation Enable/Disable Kaise Kare?](#master-switch---translation-enabledisable-kaise-kare)
+1. [Overview - What is Language System?](#overview---what-is-language-system)
+2. [Language Selection - How Users Change Language?](#language-selection---how-users-change-language)
+3. [Translation Fields - Which Fields Are Translated?](#translation-fields---which-fields-are-translated)
+4. [Master Switch - How to Enable/Disable Translation?](#master-switch---how-to-enabledisable-translation)
 5. [Per-Language Settings - Specific Language Enable/Disable](#per-language-settings---specific-language-enabledisable)
-6. [Translation Management Pages - Konsa Pages Use Kare?](#translation-management-pages---konsa-pages-use-kare)
+6. [Translation Management Pages - Which Pages to Use?](#translation-management-pages---which-pages-to-use)
 7. [Common Issues & Solutions](#common-issues--solutions)
 8. [Step-by-Step Instructions](#step-by-step-instructions)
 9. [FAQ - Frequently Asked Questions](#faq---frequently-asked-questions)
 
 ---
 
-## Overview - Language System Kya Hai?
+## Overview - What is Language System?
 
 ### What is Language System?
 
@@ -49,7 +49,7 @@ Language system allows properties to display content in multiple languages. For 
 
 ---
 
-## Language Selection - User Kaise Language Change Kare?
+## Language Selection - How Users Change Language?
 
 ### For End Users (Frontend)
 
@@ -79,7 +79,7 @@ Language system allows properties to display content in multiple languages. For 
 
 ---
 
-## Translation Fields - Konsa Fields Translate Hote Hain?
+## Translation Fields - Which Fields Are Translated?
 
 ### Complete List of Translatable Fields
 
@@ -192,7 +192,7 @@ These fields are **NOT** translated (always in original language):
 
 ---
 
-## Master Switch - Translation Enable/Disable Kaise Kare?
+## Master Switch - How to Enable/Disable Translation?
 
 ### What is Master Switch?
 
@@ -314,7 +314,7 @@ If per-language settings don't exist, you can initialize them:
 
 ---
 
-## Translation Management Pages - Konsa Pages Use Kare?
+## Translation Management Pages - Which Pages to Use?
 
 ### 1. All Properties Language Settings
 
@@ -658,7 +658,7 @@ If per-language settings don't exist, you can initialize them:
 
 ## FAQ - Frequently Asked Questions
 
-### Q1: Translation kaise enable kare?
+### Q1: How to Enable Translation?
 
 **Answer**: 
 1. Go to Update Property page
@@ -666,14 +666,14 @@ If per-language settings don't exist, you can initialize them:
 3. Save property
 4. Go to All Properties Language Settings
 5. Initialize all languages (Default: Enabled)
-6. Translation ab automatically hoga jab translatable fields change honge
+6. Translation will now run automatically when translatable fields are changed
 
 ---
 
-### Q2: Kya sabhi fields translate hote hain?
+### Q2: Are All Fields Translated?
 
 **Answer**: 
-Nahi, sirf specific fields translate hote hain:
+No, only specific fields are translated:
 - Property Name ✅
 - Room Name/Description ✅
 - Rate Plan Name/Description ✅
@@ -690,76 +690,76 @@ Nahi, sirf specific fields translate hote hain:
 
 ---
 
-### Q3: Master Switch kya hai?
+### Q3: What is Master Switch?
 
 **Answer**: 
-Master Switch ek single ON/OFF control hai jo entire property ke liye translation enable/disable karta hai. Agar Master Switch OFF hai, toh translation bilkul nahi hoga, chahe per-language settings kuch bhi ho.
+Master Switch is a single ON/OFF control that enables or disables translation for the entire property. If Master Switch is OFF, translation will not run at all, regardless of per-language settings.
 
 ---
 
-### Q4: Per-Language Settings kya hai?
+### Q4: What is Per-Language Settings?
 
 **Answer**: 
-Per-Language Settings allow karte hain ki aap specific languages ke liye translation enable/disable kar sakein. Example:
+Per-Language Settings allow you to enable/disable translation for specific languages. Example:
 - Master Switch: ON
 - Arabic: ON ✅
 - Turkish: OFF ❌
 
-Is case mein sirf Arabic translate hoga, Turkish nahi.
+In this case, only Arabic will be translated, Turkish will not.
 
 ---
 
-### Q5: Translation automatically kaise hota hai?
+### Q5: How Does Automatic Translation Work?
 
 **Answer**: 
-1. Master Switch ON hona chahiye
-2. At least ek language enabled hona chahiye
-3. Translatable field change hona chahiye
-4. System automatically DeepL API se translate karega
-5. Translation ML tables mein save hoga
+1. Master Switch must be ON
+2. At least one language must be enabled
+3. Translatable field must be changed
+4. System will automatically translate using DeepL API
+5. Translation will be saved to ML tables
 
 ---
 
-### Q6: Translation history kahan dekhein?
+### Q6: Where to View Translation History?
 
 **Answer**: 
-Go to `/Property/TranslationHistory` - yahan sabhi translation records dikhenge with filters, search, and export options.
+Go to `/Property/TranslationHistory` - all translation records will be displayed here with filters, search, and export options.
 
 ---
 
-### Q7: Agar translation fail ho jaye toh?
+### Q7: What If Translation Fails?
 
 **Answer**: 
-- Property update phir bhi successful hoga
-- Translation failure se main update affect nahi hota
-- Error logs mein check karein
-- Translation history mein check karein
-- Retry kar sakte hain by updating field again
+- Property update will still be successful
+- Translation failure does not affect the main update
+- Check error logs
+- Check translation history
+- You can retry by updating the field again
 
 ---
 
-### Q8: Kaise pata chale translation hua ya nahi?
+### Q8: How to Know If Translation Occurred?
 
 **Answer**: 
-1. Check Translation History page - agar entry hai toh translation hua
-2. Check ML tables in database - agar data hai toh translation hua
-3. Language change karke check karein - agar translated content dikh raha hai toh translation hua
+1. Check Translation History page - if entry exists, translation occurred
+2. Check ML tables in database - if data exists, translation occurred
+3. Change language and check - if translated content is visible, translation occurred
 
 ---
 
-### Q9: Language dropdown kahan hai?
+### Q9: Where is Language Dropdown?
 
 **Answer**: 
-Header mein top right corner mein - current language ke saath flag icon dikhega. Click karke language change kar sakte hain.
+In the header at the top right corner - you will see the current language with a flag icon. Click to change the language.
 
 ---
 
-### Q10: Kaise pata chale konsa language enabled hai?
+### Q10: How to Know Which Language is Enabled?
 
 **Answer**: 
 1. Go to `/Property/AllPropertiesLanguageSettings`
 2. Find property card
-3. Language toggles dekh sakte hain - ON/OFF status dikhega
+3. You can see language toggles - ON/OFF status will be displayed
 4. Green/checked = Enabled ✅
 5. Gray/unchecked = Disabled ❌
 
