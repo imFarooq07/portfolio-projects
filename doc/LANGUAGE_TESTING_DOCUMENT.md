@@ -147,10 +147,22 @@ This document provides comprehensive test cases and scenarios for testing the la
 
 ### 💡 API Cost Optimization Tips
 
-1. **Test High Impact Fields First**: Focus on fields marked with ⭐ High
-2. **Batch Testing**: Test multiple fields in one update to reduce API calls
-3. **Use Short Names**: Field names are already optimized (short but clear)
-4. **Monitor API Usage**: Check Translation History for actual API calls made
+1. **Use Short Text**: Use short words like "Hotel", "Spa", "Deluxe" instead of long descriptions
+2. **Test One Field Per Module**: Test only `PropName`, `AddonName`, `RoomName` (not all fields)
+3. **Enable Only 2-3 Languages**: Enable English + 1-2 languages for testing (not all 33 languages)
+4. **Test High Impact Fields First**: Focus on fields marked with ⭐ High
+5. **Monitor API Usage**: Check Translation History for actual API calls made
+
+### 💰 Cost Comparison Examples
+
+| Test Scenario | Fields | Languages | API Calls | Cost Level |
+|--------------|--------|-----------|-----------|------------|
+| **Property Name Only** | 1 (PropName) | 2 (EN+AR) | 2 | ✅ **Lowest** |
+| **Property Name Only** | 1 (PropName) | 5 (EN+AR+TR+FR+DE) | 5 | ⚠️ Medium |
+| **Addon All Fields** | 5 (All) | 3 (EN+AR+TR) | 15 | ❌ High |
+| **Addon Name Only** | 1 (AddonName) | 2 (EN+AR) | 2 | ✅ **Lowest** |
+| **Room All Fields** | 3 (All) | 3 (EN+AR+TR) | 9 | ⚠️ Medium |
+| **Room Name Only** | 1 (RoomName) | 2 (EN+AR) | 2 | ✅ **Lowest** |
 
 ---
 
@@ -239,55 +251,89 @@ SELECT 'Promotions_ML', COUNT(*) FROM BookingWhizz.dbo.Promotions_ML WHERE Accom
 
 ## Quick Start Testing Guide
 
-### 🚀 5-Minute Quick Test
+### 🚀 5-Minute Quick Test (Lowest Cost)
 
-**Goal**: Verify basic translation functionality works
+**Goal**: Verify basic translation functionality works with minimum API cost
 
 **Steps**:
 1. ✅ Login to system
 2. ✅ Select Arabic language from header dropdown
 3. ✅ Go to `/Property/UpdateProperty`
-4. ✅ Change property name (PropName field)
+4. ✅ Change property name (PropName field) - Use short text like "Hotel ABC"
 5. ✅ Save property
 6. ✅ Check Translation History - should show translation entry
-7. ✅ Verify Arabic translation in `Accommodations_ML` table
+7. ✅ Run SQL to verify Arabic translation in `Accommodations_ML` table
 
 **Expected Result**: ✅ Translation works, API call made, history recorded
 
+**SQL Verification**:
+```sql
+-- Check property translation (Lowest cost - only 1 field)
+SELECT AccommodationId, MultiLanguageId, AccommodationName
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY MultiLanguageId;
+```
+
+**API Cost**: 1 field × 2 languages (English + Arabic) = **2 API calls** (Minimum cost)
+
 ---
 
-### 🎯 15-Minute Comprehensive Test
+### 🎯 15-Minute Comprehensive Test (Cost Optimized)
 
-**Goal**: Test all major features
+**Goal**: Test all major features with cost optimization
 
 **Steps**:
-1. ✅ Language Selection (3 min)
-   - Select different languages
+1. ✅ Language Selection (2 min)
+   - Select Arabic language from header
    - Verify cookie persistence
    - Check search functionality
 
-2. ✅ Master Switch (3 min)
+2. ✅ Master Switch (2 min)
    - Enable master switch on UpdateProperty page
    - Verify auto-initialization
    - Check AllPropertiesLanguageSettings page
 
-3. ✅ Per-Language Settings (3 min)
-   - Toggle individual languages ON/OFF
+3. ✅ Per-Language Settings (2 min)
+   - Toggle Arabic language ON/OFF
    - Verify database updates
    - Test fallback logic
 
-4. ✅ Translation Test (4 min)
-   - Update property name (PropName)
-   - Update addon name (AddonName)
-   - Update room name (RoomName)
-   - Check all translations in ML tables
+4. ✅ Translation Test (7 min) - **Use Short Text to Reduce Cost**
+   - Update property name (PropName) - Use "Hotel ABC" (short text)
+   - Update addon name (AddonName) - Use "Spa" (short text)
+   - Update room name (RoomName) - Use "Deluxe" (short text)
+   - **Run SQL queries to verify all ML tables**
 
 5. ✅ Translation History (2 min)
    - View translation history
    - Filter by language
-   - Export CSV
+   - Verify API calls count
 
-**Expected Result**: ✅ All features work correctly
+**Expected Result**: ✅ All features work correctly, API cost minimized
+
+**SQL Verification (All Tables)**:
+```sql
+-- 1. Property Translation (1 field - Lowest cost)
+SELECT AccommodationId, MultiLanguageId, AccommodationName
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY MultiLanguageId;
+
+-- 2. Addon Translation (1 field only - Cost optimized)
+SELECT ActivityId, MultiLanguageId, ActivityName
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY ActivityId, MultiLanguageId;
+
+-- 3. Room Translation (1 field only - Cost optimized)
+SELECT RoomId, MultiLanguageId, RoomName
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY RoomId, MultiLanguageId;
+```
+
+**Total API Cost**: ~6-9 calls (optimized by using only 1 field per module)
 
 ---
 
@@ -656,124 +702,241 @@ WHERE StatusId = 1;
 
 ## Translation Functionality Testing
 
-### 🎯 Easy Test Cases - Step by Step
+### 🎯 Simple Test Cases - Step by Step (Cost Optimized)
 
 ---
 
-### Test Case 15: Property Name Translation (PropName) ⭐ HIGH PRIORITY
+### Test Case 15: Property Name Translation (PropName) ⭐ LOWEST COST
 
 **Field**: `PropName` (AccommodationName)  
 **Page**: `/Property/UpdateProperty`  
-**Time**: 2 minutes
+**Time**: 3 minutes  
+**API Cost**: **2 calls** (1 field × 2 languages)
 
 **Steps**:
 1. ✅ Enable master switch (if not enabled)
-2. ✅ Select Arabic language from header
-3. ✅ Go to `/Property/UpdateProperty`
-4. ✅ Change property name (PropName field)
-5. ✅ Click Save
-6. ✅ Check Translation History page
+2. ✅ Enable only 2 languages: English + Arabic (on AllPropertiesLanguageSettings page)
+3. ✅ Select Arabic language from header
+4. ✅ Go to `/Property/UpdateProperty`
+5. ✅ Change property name to short text: **"Hotel ABC"** (use short text to reduce cost)
+6. ✅ Click Save
+7. ✅ Check Translation History page - should show 1 entry
+8. ✅ **Run SQL to verify table records**:
+
+**SQL Verification**:
+```sql
+-- Check if record inserted/updated correctly
+SELECT AccommodationId, MultiLanguageId, AccommodationName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY MultiLanguageId;
+
+-- Expected: 2 rows (English + Arabic)
+-- English (MultiLanguageId = 1): "Hotel ABC" (original)
+-- Arabic (MultiLanguageId = 2): Translated text in Arabic
+```
 
 **Expected Results**:
 - ✅ Property saved successfully
 - ✅ Translation entry in history (Field: `PropName`)
-- ✅ Arabic translation in `Accommodations_ML` table
-- ✅ API cost: ~1 API call per enabled language
-
-**Database Check**:
-```sql
-SELECT AccommodationId, MultiLanguageId, AccommodationName 
-FROM Accommodations_ML 
-WHERE AccommodationId = @YourPropertyId;
-```
+- ✅ **2 records in `Accommodations_ML` table** (English + Arabic)
+- ✅ English record has original text
+- ✅ Arabic record has translated text
+- ✅ API cost: **2 calls only** (lowest cost)
 
 ---
 
-### Test Case 16: Addon Translation (AddonName, ShortDesc, LongDesc) ⭐ HIGH PRIORITY
+### Test Case 16: Addon Translation (AddonName Only) ⭐ LOWEST COST
 
-**Fields**: `AddonName`, `ShortDesc`, `LongDesc`  
+**Field**: `AddonName` (ActivityName) - **Only 1 field to reduce cost**  
 **Page**: `/Property/CreateAddon` or `/Property/UpdateAddon`  
-**Time**: 3 minutes
+**Time**: 3 minutes  
+**API Cost**: **2 calls** (1 field × 2 languages)
 
 **Steps**:
-1. ✅ Go to `/Property/CreateAddon`
-2. ✅ Enter:
-   - Addon Name (`AddonName`)
-   - Short Description (`ShortDesc`)
-   - Long Description (`LongDesc`)
-3. ✅ Save addon
-4. ✅ Check Translation History
+1. ✅ Enable only 2 languages: English + Arabic
+2. ✅ Go to `/Property/CreateAddon`
+3. ✅ Enter **short text**:
+   - Addon Name (`AddonName`): **"Spa"** (use short word to reduce cost)
+   - **Skip Short Description and Long Description** (to save API cost)
+4. ✅ Save addon
+5. ✅ Check Translation History - should show 1 entry
+6. ✅ **Run SQL to verify table records**:
+
+**SQL Verification**:
+```sql
+-- Check if record inserted correctly
+SELECT ActivityId, AccommodationId, MultiLanguageId, ActivityName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY ActivityId, MultiLanguageId;
+
+-- Expected: 2 rows per addon (English + Arabic)
+-- English (MultiLanguageId = 1): "Spa" (original)
+-- Arabic (MultiLanguageId = 2): Translated text in Arabic
+```
 
 **Expected Results**:
 - ✅ Addon created successfully
-- ✅ 3 translation entries in history (one per field)
-- ✅ Translations in `Activities_ML` table
-- ✅ API cost: ~3 API calls × number of enabled languages
+- ✅ **1 translation entry in history** (only AddonName field)
+- ✅ **2 records in `Activities_ML` table** (English + Arabic)
+- ✅ English record has original text "Spa"
+- ✅ Arabic record has translated text
+- ✅ API cost: **2 calls only** (lowest cost)
+
+**💡 Cost Saving Tip**: Skip `ShortDesc` and `LongDesc` fields during testing to save 4 API calls per language!
 
 ---
 
-### Test Case 17: Room Translation (RoomName, RoomDesc) ⭐ HIGH PRIORITY
+### Test Case 17: Room Translation (RoomName Only) ⭐ LOWEST COST
 
-**Fields**: `RoomName` (or `AptName` for apartments), `RoomDesc`  
+**Field**: `RoomName` (RoomName) - **Only 1 field to reduce cost**  
 **Page**: `/RoomManagement/CreateRoom`  
-**Time**: 2 minutes
+**Time**: 3 minutes  
+**API Cost**: **2 calls** (1 field × 2 languages)
 
 **Steps**:
-1. ✅ Go to `/RoomManagement/CreateRoom`
-2. ✅ Select Room Type (1 = Room, 2 = Apartment)
-3. ✅ Enter:
-   - Room Name (`RoomName`) OR Apartment Name (`AptName`)
-   - Room Description (`RoomDesc`)
-4. ✅ Save room
-5. ✅ Check Translation History
+1. ✅ Enable only 2 languages: English + Arabic
+2. ✅ Go to `/RoomManagement/CreateRoom`
+3. ✅ Select Room Type (1 = Room)
+4. ✅ Enter **short text**:
+   - Room Name (`RoomName`): **"Deluxe"** (use short word to reduce cost)
+   - **Skip Room Description** (to save API cost)
+5. ✅ Save room
+6. ✅ Check Translation History - should show 1 entry
+7. ✅ **Run SQL to verify table records**:
+
+**SQL Verification**:
+```sql
+-- Check if record inserted correctly
+SELECT RoomId, AccommodationId, MultiLanguageId, RoomName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY RoomId, MultiLanguageId;
+
+-- Expected: 2 rows per room (English + Arabic)
+-- English (MultiLanguageId = 1): "Deluxe" (original)
+-- Arabic (MultiLanguageId = 2): Translated text in Arabic
+```
 
 **Expected Results**:
 - ✅ Room created successfully
-- ✅ 2 translation entries in history
-- ✅ Translations in `Rooms_ML` table
-- ✅ API cost: ~2 API calls × number of enabled languages
+- ✅ **1 translation entry in history** (only RoomName field)
+- ✅ **2 records in `Rooms_ML` table** (English + Arabic)
+- ✅ English record has original text "Deluxe"
+- ✅ Arabic record has translated text
+- ✅ API cost: **2 calls only** (lowest cost)
+
+**💡 Cost Saving Tip**: Skip `RoomDesc` field during testing to save 2 API calls per language!
 
 ---
 
-### Test Case 18: Rate Plan Translation (RatePlanName, DisplayName) ⭐ HIGH PRIORITY
+### Test Case 18: Rate Plan Translation (RatePlanName Only) ⭐ LOWEST COST
 
-**Fields**: `RatePlanName`, `DisplayName`  
+**Field**: `RatePlanName` (RatePlanName) - **Only 1 field to reduce cost**  
 **Page**: `/RoomManagement/CreateRatePlan`  
-**Time**: 2 minutes
+**Time**: 3 minutes  
+**API Cost**: **2 calls** (1 field × 2 languages)
 
 **Steps**:
-1. ✅ Go to `/RoomManagement/CreateRatePlan`
-2. ✅ Enter:
-   - Rate Plan Name (`RatePlanName`)
-   - Display Rate Plan Name (`DisplayName`)
-3. ✅ Save rate plan
-4. ✅ Check Translation History
+1. ✅ Enable only 2 languages: English + Arabic
+2. ✅ Go to `/RoomManagement/CreateRatePlan`
+3. ✅ Enter **short text**:
+   - Rate Plan Name (`RatePlanName`): **"Standard"** (use short word to reduce cost)
+   - **Skip Display Name and other fields** (to save API cost)
+4. ✅ Save rate plan
+5. ✅ Check Translation History - should show 1 entry
+6. ✅ **Run SQL to verify table records**:
+
+**SQL Verification**:
+```sql
+-- Check if record inserted correctly
+SELECT RatePlanId, AccommodationId, MultiLanguageId, RatePlanName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
+FROM BookingWhizz.dbo.RatePlans_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY RatePlanId, MultiLanguageId;
+
+-- Expected: 2 rows per rate plan (English + Arabic)
+-- English (MultiLanguageId = 1): "Standard" (original)
+-- Arabic (MultiLanguageId = 2): Translated text in Arabic
+```
 
 **Expected Results**:
 - ✅ Rate plan created successfully
-- ✅ 2 translation entries in history
-- ✅ Translations in `RatePlans_ML` table
+- ✅ **1 translation entry in history** (only RatePlanName field)
+- ✅ **2 records in `RatePlans_ML` table** (English + Arabic)
+- ✅ English record has original text "Standard"
+- ✅ Arabic record has translated text
+- ✅ API cost: **2 calls only** (lowest cost)
+
+**💡 Cost Saving Tip**: Skip `DisplayName`, `Included`, `Highlight`, `MealDesc` fields during testing to save 8 API calls per language!
 
 ---
 
-### Test Case 19: Promotion Translation (PromoName, PromoDesc) ⭐ HIGH PRIORITY
+### Test Case 19: Promotion Translation (PromoName Only) ⭐ LOWEST COST
 
-**Fields**: `PromoName`, `PromoDesc`  
+**Field**: `PromoName` (PromotionName) - **Only 1 field to reduce cost**  
 **Page**: `/PromotionManagement/CreatePromotion`  
-**Time**: 2 minutes
+**Time**: 3 minutes  
+**API Cost**: **2 calls** (1 field × 2 languages)
 
 **Steps**:
-1. ✅ Go to `/PromotionManagement/CreatePromotion`
-2. ✅ Enter:
-   - Promotion Name (`PromoName`)
-   - Description (`PromoDesc`)
-3. ✅ Save promotion
-4. ✅ Check Translation History
+1. ✅ Enable only 2 languages: English + Arabic
+2. ✅ Go to `/PromotionManagement/CreatePromotion`
+3. ✅ Enter **short text**:
+   - Promotion Name (`PromoName`): **"Summer Sale"** (use short text to reduce cost)
+   - **Skip Description field** (to save API cost)
+4. ✅ Save promotion
+5. ✅ Check Translation History - should show 1 entry
+6. ✅ **Run SQL to verify table records**:
+
+**SQL Verification**:
+```sql
+-- Check if record inserted correctly
+SELECT PromotionId, AccommodationId, MultiLanguageId, PromotionName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
+FROM BookingWhizz.dbo.Promotions_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY PromotionId, MultiLanguageId;
+
+-- Expected: 2 rows per promotion (English + Arabic)
+-- English (MultiLanguageId = 1): "Summer Sale" (original)
+-- Arabic (MultiLanguageId = 2): Translated text in Arabic
+```
 
 **Expected Results**:
 - ✅ Promotion created successfully
-- ✅ 2 translation entries in history
-- ✅ Translations in `Promotions_ML` table
+- ✅ **1 translation entry in history** (only PromoName field)
+- ✅ **2 records in `Promotions_ML` table** (English + Arabic)
+- ✅ English record has original text "Summer Sale"
+- ✅ Arabic record has translated text
+- ✅ API cost: **2 calls only** (lowest cost)
+
+**💡 Cost Saving Tip**: Skip `PromoDesc` field during testing to save 2 API calls per language!
 
 ---
 
@@ -890,158 +1053,208 @@ WHERE AccommodationId = @YourPropertyId;
 
 ---
 
-### Test Case 26: Accommodations_ML Table Verification ⭐ HIGH PRIORITY
+### Test Case 26: Accommodations_ML Table Verification ⭐ SIMPLE CHECK
 
 **Table**: `Accommodations_ML`  
-**Fields**: `PropName`, `KeyComments`, `PetsComments`  
-**Time**: 3 minutes
+**Field**: `PropName` only (to reduce cost)  
+**Time**: 2 minutes
 
 **Steps**:
-1. ✅ Update property name (`PropName`) on UpdateProperty page
-2. ✅ Update key collection comments (`KeyComments`) on AdditionalDetail page
-3. ✅ Update pets comments (`PetsComments`) on AdditionalDetail page
-4. ✅ Run SQL query to verify:
+1. ✅ Update property name (`PropName`) to **"Hotel ABC"** on UpdateProperty page
+2. ✅ Save property
+3. ✅ **Run SQL query to verify records**:
 
 ```sql
-SELECT AccommodationId, MultiLanguageId, AccommodationName, 
-       KeyCollectionComments, PetsAllowedComments
+-- Simple verification query
+SELECT AccommodationId, MultiLanguageId, AccommodationName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           WHEN MultiLanguageId = 3 THEN 'Turkish'
+           ELSE 'Other'
+       END AS LanguageName
 FROM BookingWhizz.dbo.Accommodations_ML 
-WHERE AccommodationId = 11481
+WHERE AccommodationId = @YourPropertyId
 ORDER BY MultiLanguageId;
+
+-- Check record count (should match enabled languages)
+SELECT COUNT(*) AS TotalRecords,
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END) AS EnglishCount,
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END) AS ArabicCount
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId;
 ```
 
 **Expected Results**:
-- ✅ All enabled languages have entries in `Accommodations_ML`
-- ✅ `AccommodationName` is translated for each language
-- ✅ `KeyCollectionComments` is translated (if updated)
-- ✅ `PetsAllowedComments` is translated (if updated)
-- ✅ English (MultiLanguageId = 1) always has entry
-- ✅ Original language has entry
+- ✅ **2 records** (if 2 languages enabled: English + Arabic)
+- ✅ English (MultiLanguageId = 1): "Hotel ABC" (original text)
+- ✅ Arabic (MultiLanguageId = 2): Translated text in Arabic
+- ✅ Both records have `AccommodationName` filled
+- ✅ No NULL values in `AccommodationName` column
 
 ---
 
-### Test Case 27: Rooms_ML Table Verification ⭐ HIGH PRIORITY
+### Test Case 27: Rooms_ML Table Verification ⭐ SIMPLE CHECK
 
 **Table**: `Rooms_ML`  
-**Fields**: `RoomName`, `AptName`, `RoomDesc`  
-**Time**: 3 minutes
+**Field**: `RoomName` only (to reduce cost)  
+**Time**: 2 minutes
 
 **Steps**:
 1. ✅ Create or update a room
-2. ✅ Enter room name (`RoomName`) or apartment name (`AptName`)
-3. ✅ Enter room description (`RoomDesc`)
+2. ✅ Enter room name (`RoomName`): **"Deluxe"** (short text)
+3. ✅ **Skip room description** (to save cost)
 4. ✅ Save room
-5. ✅ Run SQL query to verify:
+5. ✅ **Run SQL query to verify records**:
 
 ```sql
-SELECT RoomId, AccommodationId, MultiLanguageId, 
-       RoomName, ApartmentName, RoomDescription
+-- Simple verification query
+SELECT RoomId, AccommodationId, MultiLanguageId, RoomName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
 FROM BookingWhizz.dbo.Rooms_ML 
-WHERE AccommodationId = 11481
+WHERE AccommodationId = @YourPropertyId
 ORDER BY RoomId, MultiLanguageId;
+
+-- Check record count per room
+SELECT RoomId, COUNT(*) AS LanguageCount
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = @YourPropertyId
+GROUP BY RoomId;
 ```
 
 **Expected Results**:
-- ✅ All enabled languages have entries in `Rooms_ML`
-- ✅ `RoomName` or `ApartmentName` is translated
-- ✅ `RoomDescription` is translated
+- ✅ **2 records per room** (if 2 languages enabled)
+- ✅ English (MultiLanguageId = 1): "Deluxe" (original text)
+- ✅ Arabic (MultiLanguageId = 2): Translated text in Arabic
 - ✅ Each room has entries for all enabled languages
-- ✅ English (MultiLanguageId = 1) always has entry
+- ✅ No NULL values in `RoomName` column
 
 ---
 
-### Test Case 28: RatePlans_ML Table Verification ⭐ HIGH PRIORITY
+### Test Case 28: RatePlans_ML Table Verification ⭐ SIMPLE CHECK
 
 **Table**: `RatePlans_ML`  
-**Fields**: `RatePlanName`, `DisplayName`, `Included`, `Highlight`, `MealDesc`  
-**Time**: 3 minutes
+**Field**: `RatePlanName` only (to reduce cost)  
+**Time**: 2 minutes
 
 **Steps**:
 1. ✅ Create or update a rate plan
-2. ✅ Enter rate plan name (`RatePlanName`)
-3. ✅ Enter display name (`DisplayName`)
-4. ✅ Enter included items (`Included`)
-5. ✅ Enter highlights (`Highlight`)
-6. ✅ Enter meal description (`MealDesc`)
-7. ✅ Save rate plan
-8. ✅ Run SQL query to verify:
+2. ✅ Enter rate plan name (`RatePlanName`): **"Standard"** (short text)
+3. ✅ **Skip all other fields** (to save cost)
+4. ✅ Save rate plan
+5. ✅ **Run SQL query to verify records**:
 
 ```sql
-SELECT RatePlanId, AccommodationId, MultiLanguageId, 
-       RatePlanName, DisplayRatePlanName, Included, 
-       Highlight, MealDescription
+-- Simple verification query
+SELECT RatePlanId, AccommodationId, MultiLanguageId, RatePlanName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
 FROM BookingWhizz.dbo.RatePlans_ML 
-WHERE AccommodationId = 11481
+WHERE AccommodationId = @YourPropertyId
 ORDER BY RatePlanId, MultiLanguageId;
+
+-- Check record count per rate plan
+SELECT RatePlanId, COUNT(*) AS LanguageCount
+FROM BookingWhizz.dbo.RatePlans_ML 
+WHERE AccommodationId = @YourPropertyId
+GROUP BY RatePlanId;
 ```
 
 **Expected Results**:
-- ✅ All enabled languages have entries in `RatePlans_ML`
-- ✅ All 5 translatable fields are translated
+- ✅ **2 records per rate plan** (if 2 languages enabled)
+- ✅ English (MultiLanguageId = 1): "Standard" (original text)
+- ✅ Arabic (MultiLanguageId = 2): Translated text in Arabic
 - ✅ Each rate plan has entries for all enabled languages
-- ✅ English (MultiLanguageId = 1) always has entry
+- ✅ No NULL values in `RatePlanName` column
 
 ---
 
-### Test Case 29: Activities_ML Table Verification ⭐ HIGH PRIORITY
+### Test Case 29: Activities_ML Table Verification ⭐ SIMPLE CHECK
 
 **Table**: `Activities_ML`  
-**Fields**: `AddonName`, `ShortDesc`, `LongDesc`, `CancelPolicy`, `GuaranteePolicy`  
-**Time**: 3 minutes
+**Field**: `AddonName` only (to reduce cost)  
+**Time**: 2 minutes
 
 **Steps**:
 1. ✅ Create or update an addon
-2. ✅ Enter addon name (`AddonName`)
-3. ✅ Enter short description (`ShortDesc`)
-4. ✅ Enter long description (`LongDesc`)
-5. ✅ Enter cancellation policy (`CancelPolicy`)
-6. ✅ Enter guarantee policy (`GuaranteePolicy`)
-7. ✅ Save addon
-8. ✅ Run SQL query to verify:
+2. ✅ Enter addon name (`AddonName`): **"Spa"** (short text)
+3. ✅ **Skip all other fields** (to save cost)
+4. ✅ Save addon
+5. ✅ **Run SQL query to verify records**:
 
 ```sql
-SELECT ActivityId, AccommodationId, MultiLanguageId, 
-       ActivityName, ShortDescription, LongDescription,
-       CancellationPolicy, GuaranteePolicy
+-- Simple verification query
+SELECT ActivityId, AccommodationId, MultiLanguageId, ActivityName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
 FROM BookingWhizz.dbo.Activities_ML 
-WHERE AccommodationId = 11481
+WHERE AccommodationId = @YourPropertyId
 ORDER BY ActivityId, MultiLanguageId;
+
+-- Check record count per addon
+SELECT ActivityId, COUNT(*) AS LanguageCount
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = @YourPropertyId
+GROUP BY ActivityId;
 ```
 
 **Expected Results**:
-- ✅ All enabled languages have entries in `Activities_ML`
-- ✅ All 5 translatable fields are translated
+- ✅ **2 records per addon** (if 2 languages enabled)
+- ✅ English (MultiLanguageId = 1): "Spa" (original text)
+- ✅ Arabic (MultiLanguageId = 2): Translated text in Arabic
 - ✅ Each addon has entries for all enabled languages
-- ✅ English (MultiLanguageId = 1) always has entry
+- ✅ No NULL values in `ActivityName` column
 
 ---
 
-### Test Case 30: Promotions_ML Table Verification ⭐ HIGH PRIORITY
+### Test Case 30: Promotions_ML Table Verification ⭐ SIMPLE CHECK
 
 **Table**: `Promotions_ML`  
-**Fields**: `PromoName`, `PromoDesc`  
+**Field**: `PromoName` only (to reduce cost)  
 **Time**: 2 minutes
 
 **Steps**:
 1. ✅ Create or update a promotion
-2. ✅ Enter promotion name (`PromoName`)
-3. ✅ Enter description (`PromoDesc`)
+2. ✅ Enter promotion name (`PromoName`): **"Summer Sale"** (short text)
+3. ✅ **Skip description field** (to save cost)
 4. ✅ Save promotion
-5. ✅ Run SQL query to verify:
+5. ✅ **Run SQL query to verify records**:
 
 ```sql
-SELECT PromotionId, AccommodationId, MultiLanguageId, 
-       PromotionName, Description
+-- Simple verification query
+SELECT PromotionId, AccommodationId, MultiLanguageId, PromotionName,
+       CASE 
+           WHEN MultiLanguageId = 1 THEN 'English'
+           WHEN MultiLanguageId = 2 THEN 'Arabic'
+           ELSE 'Other'
+       END AS LanguageName
 FROM BookingWhizz.dbo.Promotions_ML 
-WHERE AccommodationId = 11481
+WHERE AccommodationId = @YourPropertyId
 ORDER BY PromotionId, MultiLanguageId;
+
+-- Check record count per promotion
+SELECT PromotionId, COUNT(*) AS LanguageCount
+FROM BookingWhizz.dbo.Promotions_ML 
+WHERE AccommodationId = @YourPropertyId
+GROUP BY PromotionId;
 ```
 
 **Expected Results**:
-- ✅ All enabled languages have entries in `Promotions_ML`
-- ✅ Both fields (`PromoName`, `PromoDesc`) are translated
+- ✅ **2 records per promotion** (if 2 languages enabled)
+- ✅ English (MultiLanguageId = 1): "Summer Sale" (original text)
+- ✅ Arabic (MultiLanguageId = 2): Translated text in Arabic
 - ✅ Each promotion has entries for all enabled languages
-- ✅ English (MultiLanguageId = 1) always has entry
+- ✅ No NULL values in `PromotionName` column
 
 ---
 
@@ -1191,72 +1404,78 @@ ORDER BY FacilityId, MultiLanguageId;
 
 ---
 
-### Test Case 35: Complete ML Tables Verification (All Tables)
+### Test Case 35: Complete ML Tables Verification (All Tables) ⭐ QUICK CHECK
 
 **Objective**: Verify all ML tables have correct data for a property
 
-**Time**: 10 minutes
+**Time**: 5 minutes  
+**API Cost**: Already tested (no new API calls)
 
 **Steps**:
-1. ✅ Run all SQL queries for property ID 11481 (or your test property):
+1. ✅ Run **one combined SQL query** to check all tables at once:
 
 ```sql
--- 1. Accommodations_ML
-SELECT 'Accommodations_ML' AS TableName, COUNT(*) AS RecordCount
+-- Quick verification - All tables count
+SELECT 'Accommodations_ML' AS TableName, COUNT(*) AS RecordCount,
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END) AS EnglishCount,
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END) AS ArabicCount
 FROM BookingWhizz.dbo.Accommodations_ML 
-WHERE AccommodationId = 11481;
+WHERE AccommodationId = @YourPropertyId
 
--- 2. Rooms_ML
-SELECT 'Rooms_ML' AS TableName, COUNT(*) AS RecordCount
+UNION ALL
+
+SELECT 'Rooms_ML', COUNT(*),
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END),
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END)
 FROM BookingWhizz.dbo.Rooms_ML 
-WHERE AccommodationId = 11481;
+WHERE AccommodationId = @YourPropertyId
 
--- 3. RatePlans_ML
-SELECT 'RatePlans_ML' AS TableName, COUNT(*) AS RecordCount
+UNION ALL
+
+SELECT 'RatePlans_ML', COUNT(*),
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END),
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END)
 FROM BookingWhizz.dbo.RatePlans_ML 
-WHERE AccommodationId = 11481;
+WHERE AccommodationId = @YourPropertyId
 
--- 4. Activities_ML
-SELECT 'Activities_ML' AS TableName, COUNT(*) AS RecordCount
+UNION ALL
+
+SELECT 'Activities_ML', COUNT(*),
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END),
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END)
 FROM BookingWhizz.dbo.Activities_ML 
-WHERE AccommodationId = 11481;
+WHERE AccommodationId = @YourPropertyId
 
--- 5. Promotions_ML
-SELECT 'Promotions_ML' AS TableName, COUNT(*) AS RecordCount
+UNION ALL
+
+SELECT 'Promotions_ML', COUNT(*),
+       COUNT(CASE WHEN MultiLanguageId = 1 THEN 1 END),
+       COUNT(CASE WHEN MultiLanguageId = 2 THEN 1 END)
 FROM BookingWhizz.dbo.Promotions_ML 
-WHERE AccommodationId = 11481;
-
--- 6. AFGroups_ML (for owner)
-SELECT 'AFGroups_ML' AS TableName, COUNT(*) AS RecordCount
-FROM BookingWhizz.dbo.AFGroups_ML 
-WHERE OwnerId = @YourOwnerId;
-
--- 7. AccommodationsFacilities_ML (for owner)
-SELECT 'AccommodationsFacilities_ML' AS TableName, COUNT(*) AS RecordCount
-FROM BookingWhizz.dbo.AccommodationsFacilities_ML 
-WHERE OwnerId = @YourOwnerId;
-
--- 8. RFGroups_ML (for owner)
-SELECT 'RFGroups_ML' AS TableName, COUNT(*) AS RecordCount
-FROM BookingWhizz.dbo.RFGroups_ML 
-WHERE OwnerId = @YourOwnerId;
-
--- 9. RoomFacilities_ML (for owner)
-SELECT 'RoomFacilities_ML' AS TableName, COUNT(*) AS RecordCount
-FROM BookingWhizz.dbo.RoomFacilities_ML 
-WHERE OwnerId = @YourOwnerId;
+WHERE AccommodationId = @YourPropertyId;
 ```
 
-2. ✅ Verify each table has records
-3. ✅ Check that each record has entries for all enabled languages
-4. ✅ Verify English (MultiLanguageId = 1) exists in all tables
+2. ✅ **Verify each table**:
+   - RecordCount should be **2 × number of items** (if 2 languages enabled)
+   - EnglishCount should match number of items
+   - ArabicCount should match number of items
 
 **Expected Results**:
-- ✅ All 9 ML tables have records
-- ✅ Each record has entries for all enabled languages
+- ✅ All 5 main ML tables have records
+- ✅ Each item has **2 records** (English + Arabic)
 - ✅ English (MultiLanguageId = 1) exists in all tables
-- ✅ No missing translations for enabled languages
-- ✅ Data consistency across all tables
+- ✅ Arabic (MultiLanguageId = 2) exists in all tables
+- ✅ No missing translations
+
+**Example Output**:
+```
+TableName           | RecordCount | EnglishCount | ArabicCount
+Accommodations_ML   | 2           | 1            | 1
+Rooms_ML            | 4           | 2            | 2
+RatePlans_ML        | 6           | 3            | 3
+Activities_ML       | 4           | 2            | 2
+Promotions_ML       | 2           | 1            | 1
+```
 
 ---
 
@@ -1761,34 +1980,39 @@ For issues or questions regarding testing:
 
 ## Quick Test Checklist
 
-### ✅ Daily Testing Checklist (5 minutes)
+### ✅ Daily Testing Checklist (5 minutes) - LOWEST COST
 
-Use this checklist for quick daily testing:
+Use this checklist for quick daily testing with minimum API cost:
 
-- [ ] **Language Selection**: Change language from header dropdown
+- [ ] **Language Selection**: Change language from header dropdown (Arabic)
 - [ ] **Master Switch**: Toggle ON/OFF on UpdateProperty page
-- [ ] **Property Translation**: Update `PropName` field and verify translation
-- [ ] **Translation History**: Check history page shows new entry
-- [ ] **Per-Language Toggle**: Toggle one language ON/OFF on AllPropertiesLanguageSettings page
+- [ ] **Property Translation**: Update `PropName` to **"Hotel ABC"** (short text) and verify
+- [ ] **SQL Check**: Run SQL to verify 2 records in `Accommodations_ML` table
+- [ ] **Translation History**: Check history page shows 1 entry (2 API calls)
+
+**Total API Cost**: **2 calls only** (lowest cost)
+
+**Quick SQL Check**:
+```sql
+SELECT AccommodationId, MultiLanguageId, AccommodationName
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId
+ORDER BY MultiLanguageId;
+-- Expected: 2 rows (English + Arabic)
+```
 
 ---
 
-### ✅ Weekly Testing Checklist (15 minutes)
+### ✅ Weekly Testing Checklist (15 minutes) - COST OPTIMIZED
 
-Use this checklist for comprehensive weekly testing:
+Use this checklist for comprehensive weekly testing with cost optimization:
 
-- [ ] **All High Priority Fields** (11 fields):
-  - [ ] `PropName` - Property name
-  - [ ] `AddonName` - Addon name
-  - [ ] `ShortDesc` - Short description
-  - [ ] `LongDesc` - Long description
-  - [ ] `RoomName` - Room name
-  - [ ] `AptName` - Apartment name
-  - [ ] `RoomDesc` - Room description
-  - [ ] `RatePlanName` - Rate plan name
-  - [ ] `DisplayName` - Display rate plan name
-  - [ ] `PromoName` - Promotion name
-  - [ ] `PromoDesc` - Promotion description
+- [ ] **One Field Per Module** (5 fields only - lowest cost):
+  - [ ] `PropName` - Property name: **"Hotel ABC"** (short text)
+  - [ ] `AddonName` - Addon name: **"Spa"** (short text)
+  - [ ] `RoomName` - Room name: **"Deluxe"** (short text)
+  - [ ] `RatePlanName` - Rate plan name: **"Standard"** (short text)
+  - [ ] `PromoName` - Promotion name: **"Summer Sale"** (short text)
 
 - [ ] **Translation Skipped Scenarios**:
   - [ ] No field change - translation skipped
@@ -1796,20 +2020,26 @@ Use this checklist for comprehensive weekly testing:
   - [ ] Disabled language - translation skipped
 
 - [ ] **Translation History**:
-  - [ ] View history
+  - [ ] View history - should show 5 entries
   - [ ] Filter by language
-  - [ ] Export CSV
+  - [ ] Verify API calls count: **10 calls** (5 fields × 2 languages)
 
-- [ ] **ML Tables Verification** (Run SQL queries):
-  - [ ] `Accommodations_ML` - Check property translations
-  - [ ] `Rooms_ML` - Check room translations
-  - [ ] `RatePlans_ML` - Check rate plan translations
-  - [ ] `Activities_ML` - Check addon translations
-  - [ ] `Promotions_ML` - Check promotion translations
-  - [ ] `AFGroups_ML` - Check accommodation groups
-  - [ ] `AccommodationsFacilities_ML` - Check accommodation facilities
-  - [ ] `RFGroups_ML` - Check room groups
-  - [ ] `RoomFacilities_ML` - Check room facilities
+- [ ] **ML Tables Verification** (Run one combined SQL query):
+```sql
+-- Quick check all tables
+SELECT 'Accommodations_ML' AS TableName, COUNT(*) AS Records
+FROM BookingWhizz.dbo.Accommodations_ML WHERE AccommodationId = @YourPropertyId
+UNION ALL
+SELECT 'Rooms_ML', COUNT(*) FROM BookingWhizz.dbo.Rooms_ML WHERE AccommodationId = @YourPropertyId
+UNION ALL
+SELECT 'RatePlans_ML', COUNT(*) FROM BookingWhizz.dbo.RatePlans_ML WHERE AccommodationId = @YourPropertyId
+UNION ALL
+SELECT 'Activities_ML', COUNT(*) FROM BookingWhizz.dbo.Activities_ML WHERE AccommodationId = @YourPropertyId
+UNION ALL
+SELECT 'Promotions_ML', COUNT(*) FROM BookingWhizz.dbo.Promotions_ML WHERE AccommodationId = @YourPropertyId;
+```
+
+**Total API Cost**: **10 calls** (5 fields × 2 languages) - Optimized!
 
 ---
 
