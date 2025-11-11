@@ -12,16 +12,282 @@ This document provides comprehensive test cases and scenarios for testing the la
 
 ## 📋 Table of Contents
 
-1. [Pre-Testing Setup](#pre-testing-setup)
-2. [Language Selection Testing](#language-selection-testing)
-3. [Master Switch Testing](#master-switch-testing)
-4. [Per-Language Settings Testing](#per-language-settings-testing)
-5. [Translation Functionality Testing](#translation-functionality-testing)
-6. [Translation History Testing](#translation-history-testing)
-7. [Translation Analytics Testing](#translation-analytics-testing)
-8. [Edge Cases & Error Scenarios](#edge-cases--error-scenarios)
-9. [Performance Testing](#performance-testing)
-10. [Regression Testing Checklist](#regression-testing-checklist)
+1. [Translatable Fields Reference (API Cost Optimization)](#translatable-fields-reference-api-cost-optimization)
+2. [Quick Start Testing Guide](#quick-start-testing-guide)
+3. [Pre-Testing Setup](#pre-testing-setup)
+4. [Language Selection Testing](#language-selection-testing)
+5. [Master Switch Testing](#master-switch-testing)
+6. [Per-Language Settings Testing](#per-language-settings-testing)
+7. [Translation Functionality Testing](#translation-functionality-testing)
+8. [Translation History Testing](#translation-history-testing)
+9. [Edge Cases & Error Scenarios](#edge-cases--error-scenarios)
+10. [Quick Test Checklist](#quick-test-checklist)
+
+---
+
+## Translatable Fields Reference (API Cost Optimization)
+
+### ⚡ Important: Field Names for API Cost Reduction
+
+**Note**: Field names are kept short to minimize API costs. Use these exact names in test cases.
+
+### Complete Field Mapping
+
+#### 1. Property Module (`/Property/CreateProperty`, `/Property/UpdateProperty`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `PropName` | `AccommodationName` | Property name | ⭐ High (most used) |
+
+**Total Fields**: 1
+
+---
+
+#### 2. Additional Details Module (`/Property/AdditionalDetail`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `KeyComments` | `KeyCollectionComments` | Key collection instructions | ⭐ Medium |
+| `PetsComments` | `PetsAllowedComments` | Pet policy comments | ⭐ Medium |
+
+**Total Fields**: 2
+
+---
+
+#### 3. Addon Module (`/Property/CreateAddon`, `/Property/UpdateAddon`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `AddonName` | `ActivityName` | Addon/Activity name | ⭐ High |
+| `ShortDesc` | `ShortDescription` | Short description | ⭐ High |
+| `LongDesc` | `LongDescription` | Long description | ⭐ High |
+| `CancelPolicy` | `CancellationPolicy` | Cancellation policy | ⭐ Medium |
+| `GuaranteePolicy` | `GuaranteePolicy` | Guarantee policy | ⭐ Medium |
+
+**Total Fields**: 5
+
+---
+
+#### 4. Room Module (`/RoomManagement/CreateRoom`, `/RoomManagement/UpdateRoom`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `RoomName` | `RoomName` | Room name (RoomTypeId=1) | ⭐ High |
+| `AptName` | `ApartmentName` | Apartment name (RoomTypeId=2) | ⭐ High |
+| `RoomDesc` | `RoomDescription` | Room description | ⭐ High |
+
+**Total Fields**: 3
+
+---
+
+#### 5. Rate Plan Module (`/RoomManagement/CreateRatePlan`, `/RoomManagement/UpdateRatePlan`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `RatePlanName` | `RatePlanName` | Rate plan name | ⭐ High |
+| `DisplayName` | `DisplayRatePlanName` | Display name | ⭐ High |
+| `Included` | `Included` | Included items | ⭐ Medium |
+| `Highlight` | `Highlight` | Highlights | ⭐ Medium |
+| `MealDesc` | `MealDescription` | Meal description | ⭐ Medium |
+
+**Total Fields**: 5
+
+---
+
+#### 6. Promotion Module (`/PromotionManagement/CreatePromotion`, `/PromotionManagement/UpdatePromotion`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `PromoName` | `PromotionName` | Promotion name | ⭐ High |
+| `PromoDesc` | `Description` | Promotion description | ⭐ High |
+
+**Total Fields**: 2
+
+---
+
+#### 7. Property Facilities Module (`/Property/PropertyFacilities`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `GroupName` | `GroupName` | Facility group name | ⭐ Low |
+| `FacilityName` | `FacilityName` | Facility name | ⭐ Low |
+| `OtherGroupName` | `OtherGroupName` | Other group name | ⭐ Low |
+| `OtherFacilityName` | `OtherFacilityName` | Other facility name | ⭐ Low |
+
+**Total Fields**: 4
+
+---
+
+#### 8. Room Facilities Module (`/RoomManagement/RoomFacilities`)
+
+| Short Name | Full Field Name | Description | API Cost Impact |
+|------------|----------------|-------------|-----------------|
+| `GroupName` | `GroupName` | Room facility group name | ⭐ Low |
+| `FacilityName` | `FacilityName` | Room facility name | ⭐ Low |
+| `OtherGroupName` | `OtherGroupName` | Other group name | ⭐ Low |
+| `OtherFacilityName` | `OtherFacilityName` | Other facility name | ⭐ Low |
+
+**Total Fields**: 4
+
+---
+
+### 📊 Summary
+
+| Module | Total Fields | High Impact Fields | Medium Impact Fields | Low Impact Fields |
+|--------|-------------|-------------------|---------------------|-------------------|
+| Property | 1 | 1 | 0 | 0 |
+| Additional Details | 2 | 0 | 2 | 0 |
+| Addon | 5 | 3 | 2 | 0 |
+| Room | 3 | 3 | 0 | 0 |
+| Rate Plan | 5 | 2 | 3 | 0 |
+| Promotion | 2 | 2 | 0 | 0 |
+| Property Facilities | 4 | 0 | 0 | 4 |
+| Room Facilities | 4 | 0 | 0 | 4 |
+| **TOTAL** | **26** | **11** | **7** | **8** |
+
+### 💡 API Cost Optimization Tips
+
+1. **Test High Impact Fields First**: Focus on fields marked with ⭐ High
+2. **Batch Testing**: Test multiple fields in one update to reduce API calls
+3. **Use Short Names**: Field names are already optimized (short but clear)
+4. **Monitor API Usage**: Check Translation History for actual API calls made
+
+---
+
+### 🔍 Quick SQL Reference for ML Tables Testing
+
+**Copy-paste ready SQL queries for testing** (Replace `11481` with your test property ID):
+
+```sql
+-- 1. Accommodations_ML (Property translations)
+SELECT AccommodationId, MultiLanguageId, AccommodationName, 
+       KeyCollectionComments, PetsAllowedComments
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = 11481
+ORDER BY MultiLanguageId;
+
+-- 2. Rooms_ML (Room translations)
+SELECT RoomId, AccommodationId, MultiLanguageId, 
+       RoomName, ApartmentName, RoomDescription
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = 11481
+ORDER BY RoomId, MultiLanguageId;
+
+-- 3. RatePlans_ML (Rate plan translations)
+SELECT RatePlanId, AccommodationId, MultiLanguageId, 
+       RatePlanName, DisplayRatePlanName, Included, 
+       Highlight, MealDescription
+FROM BookingWhizz.dbo.RatePlans_ML 
+WHERE AccommodationId = 11481
+ORDER BY RatePlanId, MultiLanguageId;
+
+-- 4. Activities_ML (Addon translations)
+SELECT ActivityId, AccommodationId, MultiLanguageId, 
+       ActivityName, ShortDescription, LongDescription,
+       CancellationPolicy, GuaranteePolicy
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = 11481
+ORDER BY ActivityId, MultiLanguageId;
+
+-- 5. Promotions_ML (Promotion translations)
+SELECT PromotionId, AccommodationId, MultiLanguageId, 
+       PromotionName, Description
+FROM BookingWhizz.dbo.Promotions_ML 
+WHERE AccommodationId = 11481
+ORDER BY PromotionId, MultiLanguageId;
+
+-- 6. AFGroups_ML (Accommodation Groups) - Replace @YourOwnerId
+SELECT OwnerId, MultiLanguageId, GroupId, GroupName, OtherGroupName
+FROM BookingWhizz.dbo.AFGroups_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY GroupId, MultiLanguageId;
+
+-- 7. AccommodationsFacilities_ML (Accommodation Facilities) - Replace @YourOwnerId
+SELECT OwnerId, MultiLanguageId, GroupId, FacilityId, 
+       FacilityName, OtherFacilityName
+FROM BookingWhizz.dbo.AccommodationsFacilities_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY FacilityId, MultiLanguageId;
+
+-- 8. RFGroups_ML (Room Groups) - Replace @YourOwnerId
+SELECT OwnerId, MultiLanguageId, GroupId, GroupName, OtherGroupName
+FROM BookingWhizz.dbo.RFGroups_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY GroupId, MultiLanguageId;
+
+-- 9. RoomFacilities_ML (Room Facilities) - Replace @YourOwnerId
+SELECT OwnerId, MultiLanguageId, GroupId, FacilityId, 
+       FacilityName, OtherFacilityName
+FROM BookingWhizz.dbo.RoomFacilities_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY FacilityId, MultiLanguageId;
+
+-- 10. Complete Verification (All tables count)
+SELECT 'Accommodations_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.Accommodations_ML WHERE AccommodationId = 11481
+UNION ALL
+SELECT 'Rooms_ML', COUNT(*) FROM BookingWhizz.dbo.Rooms_ML WHERE AccommodationId = 11481
+UNION ALL
+SELECT 'RatePlans_ML', COUNT(*) FROM BookingWhizz.dbo.RatePlans_ML WHERE AccommodationId = 11481
+UNION ALL
+SELECT 'Activities_ML', COUNT(*) FROM BookingWhizz.dbo.Activities_ML WHERE AccommodationId = 11481
+UNION ALL
+SELECT 'Promotions_ML', COUNT(*) FROM BookingWhizz.dbo.Promotions_ML WHERE AccommodationId = 11481;
+```
+
+---
+
+## Quick Start Testing Guide
+
+### 🚀 5-Minute Quick Test
+
+**Goal**: Verify basic translation functionality works
+
+**Steps**:
+1. ✅ Login to system
+2. ✅ Select Arabic language from header dropdown
+3. ✅ Go to `/Property/UpdateProperty`
+4. ✅ Change property name (PropName field)
+5. ✅ Save property
+6. ✅ Check Translation History - should show translation entry
+7. ✅ Verify Arabic translation in `Accommodations_ML` table
+
+**Expected Result**: ✅ Translation works, API call made, history recorded
+
+---
+
+### 🎯 15-Minute Comprehensive Test
+
+**Goal**: Test all major features
+
+**Steps**:
+1. ✅ Language Selection (3 min)
+   - Select different languages
+   - Verify cookie persistence
+   - Check search functionality
+
+2. ✅ Master Switch (3 min)
+   - Enable master switch on UpdateProperty page
+   - Verify auto-initialization
+   - Check AllPropertiesLanguageSettings page
+
+3. ✅ Per-Language Settings (3 min)
+   - Toggle individual languages ON/OFF
+   - Verify database updates
+   - Test fallback logic
+
+4. ✅ Translation Test (4 min)
+   - Update property name (PropName)
+   - Update addon name (AddonName)
+   - Update room name (RoomName)
+   - Check all translations in ML tables
+
+5. ✅ Translation History (2 min)
+   - View translation history
+   - Filter by language
+   - Export CSV
+
+**Expected Result**: ✅ All features work correctly
 
 ---
 
@@ -390,221 +656,613 @@ WHERE StatusId = 1;
 
 ## Translation Functionality Testing
 
-### Test Case 15: Property Translation on Create
-
-**Objective**: Verify translation runs when creating property in non-English language
-
-**Steps**:
-1. Select Arabic language from dropdown
-2. Navigate to `/Property/CreateProperty`
-3. Enter property name in English
-4. Submit form
-5. Verify translation runs
-
-**Expected Results**:
-- ✅ Property is created successfully
-- ✅ Property name is translated to Arabic
-- ✅ Translation is saved to `Accommodations_ML` table
-- ✅ Translation history entry is created
-- ✅ Original English text is preserved in main table
+### 🎯 Easy Test Cases - Step by Step
 
 ---
 
-### Test Case 16: Property Translation on Update
+### Test Case 15: Property Name Translation (PropName) ⭐ HIGH PRIORITY
 
-**Objective**: Verify translation runs when updating translatable field
+**Field**: `PropName` (AccommodationName)  
+**Page**: `/Property/UpdateProperty`  
+**Time**: 2 minutes
 
 **Steps**:
-1. Navigate to `/Property/UpdateProperty`
-2. Change property name (translatable field)
-3. Save property
-4. Verify translation runs
+1. ✅ Enable master switch (if not enabled)
+2. ✅ Select Arabic language from header
+3. ✅ Go to `/Property/UpdateProperty`
+4. ✅ Change property name (PropName field)
+5. ✅ Click Save
+6. ✅ Check Translation History page
 
 **Expected Results**:
-- ✅ Property is updated successfully
-- ✅ Field change is detected
+- ✅ Property saved successfully
+- ✅ Translation entry in history (Field: `PropName`)
+- ✅ Arabic translation in `Accommodations_ML` table
+- ✅ API cost: ~1 API call per enabled language
+
+**Database Check**:
+```sql
+SELECT AccommodationId, MultiLanguageId, AccommodationName 
+FROM Accommodations_ML 
+WHERE AccommodationId = @YourPropertyId;
+```
+
+---
+
+### Test Case 16: Addon Translation (AddonName, ShortDesc, LongDesc) ⭐ HIGH PRIORITY
+
+**Fields**: `AddonName`, `ShortDesc`, `LongDesc`  
+**Page**: `/Property/CreateAddon` or `/Property/UpdateAddon`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Go to `/Property/CreateAddon`
+2. ✅ Enter:
+   - Addon Name (`AddonName`)
+   - Short Description (`ShortDesc`)
+   - Long Description (`LongDesc`)
+3. ✅ Save addon
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Addon created successfully
+- ✅ 3 translation entries in history (one per field)
+- ✅ Translations in `Activities_ML` table
+- ✅ API cost: ~3 API calls × number of enabled languages
+
+---
+
+### Test Case 17: Room Translation (RoomName, RoomDesc) ⭐ HIGH PRIORITY
+
+**Fields**: `RoomName` (or `AptName` for apartments), `RoomDesc`  
+**Page**: `/RoomManagement/CreateRoom`  
+**Time**: 2 minutes
+
+**Steps**:
+1. ✅ Go to `/RoomManagement/CreateRoom`
+2. ✅ Select Room Type (1 = Room, 2 = Apartment)
+3. ✅ Enter:
+   - Room Name (`RoomName`) OR Apartment Name (`AptName`)
+   - Room Description (`RoomDesc`)
+4. ✅ Save room
+5. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Room created successfully
+- ✅ 2 translation entries in history
+- ✅ Translations in `Rooms_ML` table
+- ✅ API cost: ~2 API calls × number of enabled languages
+
+---
+
+### Test Case 18: Rate Plan Translation (RatePlanName, DisplayName) ⭐ HIGH PRIORITY
+
+**Fields**: `RatePlanName`, `DisplayName`  
+**Page**: `/RoomManagement/CreateRatePlan`  
+**Time**: 2 minutes
+
+**Steps**:
+1. ✅ Go to `/RoomManagement/CreateRatePlan`
+2. ✅ Enter:
+   - Rate Plan Name (`RatePlanName`)
+   - Display Rate Plan Name (`DisplayName`)
+3. ✅ Save rate plan
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Rate plan created successfully
+- ✅ 2 translation entries in history
+- ✅ Translations in `RatePlans_ML` table
+
+---
+
+### Test Case 19: Promotion Translation (PromoName, PromoDesc) ⭐ HIGH PRIORITY
+
+**Fields**: `PromoName`, `PromoDesc`  
+**Page**: `/PromotionManagement/CreatePromotion`  
+**Time**: 2 minutes
+
+**Steps**:
+1. ✅ Go to `/PromotionManagement/CreatePromotion`
+2. ✅ Enter:
+   - Promotion Name (`PromoName`)
+   - Description (`PromoDesc`)
+3. ✅ Save promotion
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Promotion created successfully
+- ✅ 2 translation entries in history
+- ✅ Translations in `Promotions_ML` table
+
+---
+
+### Test Case 20: Additional Details Translation (KeyComments, PetsComments)
+
+**Fields**: `KeyComments`, `PetsComments`  
+**Page**: `/Property/AdditionalDetail`  
+**Time**: 2 minutes
+
+**Steps**:
+1. ✅ Go to `/Property/AdditionalDetail`
+2. ✅ Enter:
+   - Key Collection Comments (`KeyComments`)
+   - Pets Allowed Comments (`PetsComments`)
+3. ✅ Save
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Details saved successfully
+- ✅ 2 translation entries in history
+- ✅ Translations in `Accommodations_ML` table
+
+---
+
+### Test Case 21: Translation Skipped - No Field Change
+
+**Objective**: Verify translation doesn't run when no translatable fields change
+
+**Steps**:
+1. ✅ Go to `/Property/UpdateProperty`
+2. ✅ Change NON-translatable field (e.g., Email, Phone, Address)
+3. ✅ Save property
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Property updated successfully
+- ✅ NO translation entries in history
+- ✅ No API calls made
+- ✅ Logs show: "Translation skipped - no translatable fields changed"
+
+---
+
+### Test Case 22: Translation Skipped - Master Switch OFF
+
+**Objective**: Verify translation doesn't run when master switch is disabled
+
+**Steps**:
+1. ✅ Disable master switch on UpdateProperty page
+2. ✅ Change property name (PropName)
+3. ✅ Save property
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Property updated successfully
+- ✅ NO translation entries in history
+- ✅ No API calls made
+- ✅ Logs show: "Translation skipped - AutoTranslateEnabled: false"
+
+---
+
+### Test Case 23: Translation for Specific Languages Only
+
+**Objective**: Verify translation runs only for enabled languages
+
+**Steps**:
+1. ✅ Enable master switch
+2. ✅ Go to `/Property/AllPropertiesLanguageSettings`
+3. ✅ Disable Arabic language (keep Turkish enabled)
+4. ✅ Update property name (PropName)
+5. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Translation runs for Turkish only
+- ✅ NO translation for Arabic
+- ✅ Only Turkish entry in history
+- ✅ Only Turkish entry in `Accommodations_ML` table
+
+---
+
+### Test Case 24: Multiple Fields Translation (Batch Test)
+
+**Objective**: Test multiple fields in one update to verify batch translation
+
+**Steps**:
+1. ✅ Go to `/Property/UpdateProperty`
+2. ✅ Change multiple translatable fields:
+   - Property Name (`PropName`)
+   - (If Additional Details page exists, update `KeyComments` and `PetsComments`)
+3. ✅ Save property
+4. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ All fields translated
+- ✅ Multiple entries in history (one per field)
+- ✅ All translations in ML tables
+- ✅ API cost: Number of fields × Number of enabled languages
+
+---
+
+### Test Case 25: English Always Translated
+
+**Objective**: Verify English is always included in translation
+
+**Steps**:
+1. ✅ Select Arabic language from header
+2. ✅ Update property name (PropName)
+3. ✅ Check Translation History
+
+**Expected Results**:
+- ✅ Arabic translation created
+- ✅ English translation also created (LanguageId = 1)
+- ✅ Both entries in history
+- ✅ Both entries in `Accommodations_ML` table
+
+---
+
+### Test Case 26: Accommodations_ML Table Verification ⭐ HIGH PRIORITY
+
+**Table**: `Accommodations_ML`  
+**Fields**: `PropName`, `KeyComments`, `PetsComments`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Update property name (`PropName`) on UpdateProperty page
+2. ✅ Update key collection comments (`KeyComments`) on AdditionalDetail page
+3. ✅ Update pets comments (`PetsComments`) on AdditionalDetail page
+4. ✅ Run SQL query to verify:
+
+```sql
+SELECT AccommodationId, MultiLanguageId, AccommodationName, 
+       KeyCollectionComments, PetsAllowedComments
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = 11481
+ORDER BY MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ All enabled languages have entries in `Accommodations_ML`
+- ✅ `AccommodationName` is translated for each language
+- ✅ `KeyCollectionComments` is translated (if updated)
+- ✅ `PetsAllowedComments` is translated (if updated)
+- ✅ English (MultiLanguageId = 1) always has entry
+- ✅ Original language has entry
+
+---
+
+### Test Case 27: Rooms_ML Table Verification ⭐ HIGH PRIORITY
+
+**Table**: `Rooms_ML`  
+**Fields**: `RoomName`, `AptName`, `RoomDesc`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Create or update a room
+2. ✅ Enter room name (`RoomName`) or apartment name (`AptName`)
+3. ✅ Enter room description (`RoomDesc`)
+4. ✅ Save room
+5. ✅ Run SQL query to verify:
+
+```sql
+SELECT RoomId, AccommodationId, MultiLanguageId, 
+       RoomName, ApartmentName, RoomDescription
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = 11481
+ORDER BY RoomId, MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ All enabled languages have entries in `Rooms_ML`
+- ✅ `RoomName` or `ApartmentName` is translated
+- ✅ `RoomDescription` is translated
+- ✅ Each room has entries for all enabled languages
+- ✅ English (MultiLanguageId = 1) always has entry
+
+---
+
+### Test Case 28: RatePlans_ML Table Verification ⭐ HIGH PRIORITY
+
+**Table**: `RatePlans_ML`  
+**Fields**: `RatePlanName`, `DisplayName`, `Included`, `Highlight`, `MealDesc`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Create or update a rate plan
+2. ✅ Enter rate plan name (`RatePlanName`)
+3. ✅ Enter display name (`DisplayName`)
+4. ✅ Enter included items (`Included`)
+5. ✅ Enter highlights (`Highlight`)
+6. ✅ Enter meal description (`MealDesc`)
+7. ✅ Save rate plan
+8. ✅ Run SQL query to verify:
+
+```sql
+SELECT RatePlanId, AccommodationId, MultiLanguageId, 
+       RatePlanName, DisplayRatePlanName, Included, 
+       Highlight, MealDescription
+FROM BookingWhizz.dbo.RatePlans_ML 
+WHERE AccommodationId = 11481
+ORDER BY RatePlanId, MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ All enabled languages have entries in `RatePlans_ML`
+- ✅ All 5 translatable fields are translated
+- ✅ Each rate plan has entries for all enabled languages
+- ✅ English (MultiLanguageId = 1) always has entry
+
+---
+
+### Test Case 29: Activities_ML Table Verification ⭐ HIGH PRIORITY
+
+**Table**: `Activities_ML`  
+**Fields**: `AddonName`, `ShortDesc`, `LongDesc`, `CancelPolicy`, `GuaranteePolicy`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Create or update an addon
+2. ✅ Enter addon name (`AddonName`)
+3. ✅ Enter short description (`ShortDesc`)
+4. ✅ Enter long description (`LongDesc`)
+5. ✅ Enter cancellation policy (`CancelPolicy`)
+6. ✅ Enter guarantee policy (`GuaranteePolicy`)
+7. ✅ Save addon
+8. ✅ Run SQL query to verify:
+
+```sql
+SELECT ActivityId, AccommodationId, MultiLanguageId, 
+       ActivityName, ShortDescription, LongDescription,
+       CancellationPolicy, GuaranteePolicy
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = 11481
+ORDER BY ActivityId, MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ All enabled languages have entries in `Activities_ML`
+- ✅ All 5 translatable fields are translated
+- ✅ Each addon has entries for all enabled languages
+- ✅ English (MultiLanguageId = 1) always has entry
+
+---
+
+### Test Case 30: Promotions_ML Table Verification ⭐ HIGH PRIORITY
+
+**Table**: `Promotions_ML`  
+**Fields**: `PromoName`, `PromoDesc`  
+**Time**: 2 minutes
+
+**Steps**:
+1. ✅ Create or update a promotion
+2. ✅ Enter promotion name (`PromoName`)
+3. ✅ Enter description (`PromoDesc`)
+4. ✅ Save promotion
+5. ✅ Run SQL query to verify:
+
+```sql
+SELECT PromotionId, AccommodationId, MultiLanguageId, 
+       PromotionName, Description
+FROM BookingWhizz.dbo.Promotions_ML 
+WHERE AccommodationId = 11481
+ORDER BY PromotionId, MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ All enabled languages have entries in `Promotions_ML`
+- ✅ Both fields (`PromoName`, `PromoDesc`) are translated
+- ✅ Each promotion has entries for all enabled languages
+- ✅ English (MultiLanguageId = 1) always has entry
+
+---
+
+### Test Case 31: AFGroups_ML Table Verification (Accommodations Groups)
+
+**Table**: `AFGroups_ML`  
+**Fields**: `GroupName`, `OtherGroupName`  
+**Time**: 3 minutes
+
+**Steps**:
+1. ✅ Go to `/Property/PropertyFacilities`
+2. ✅ Add a new facility group
+3. ✅ Enter group name (`GroupName`)
+4. ✅ Enter other group name (`OtherGroupName`) - optional
+5. ✅ Save group
+6. ✅ Run SQL query to verify:
+
+```sql
+SELECT OwnerId, MultiLanguageId, GroupId, GroupName, OtherGroupName
+FROM BookingWhizz.dbo.AFGroups_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY GroupId, MultiLanguageId;
+```
+
+**Expected Results**:
+- ✅ Group is created in main table (`AFGroups`)
 - ✅ Translation runs for all enabled languages
-- ✅ ML tables are updated with translations
-- ✅ Translation history entries are created
-- ✅ Original language content is preserved
+- ✅ Entries created in `AFGroups_ML` for all enabled languages
+- ✅ `GroupName` is translated
+- ✅ `OtherGroupName` is translated (if provided)
 
-**Prerequisites**:
-- Master switch must be enabled
-- At least one language must be enabled in PerLanguageSettings
-- Old model must be available for comparison
-
----
-
-### Test Case 17: Translation Skipped When No Field Change
-
-**Objective**: Verify translation does not run when no translatable fields change
-
-**Steps**:
-1. Navigate to `/Property/UpdateProperty`
-2. Change a non-translatable field (e.g., email, phone)
-3. Save property
-4. Verify translation does NOT run
-
-**Expected Results**:
-- ✅ Property is updated successfully
-- ✅ Translation does NOT run (field change detection works)
-- ✅ No translation history entries are created
-- ✅ Logs show "Translation skipped - no translatable fields changed"
+**Bulk Translation Test**:
+1. ✅ Go to `/Property/PropertyFacilities`
+2. ✅ Click "Bulk Translate Accommodation Groups" button (if available)
+3. ✅ Verify all groups are translated
+4. ✅ Run SQL query to verify all groups have ML entries
 
 ---
 
-### Test Case 18: Translation Skipped When Master Switch Disabled
+### Test Case 32: AccommodationsFacilities_ML Table Verification (Accommodations Facilities)
 
-**Objective**: Verify translation does not run when master switch is disabled
-
-**Steps**:
-1. Disable master switch for a property
-2. Navigate to `/Property/UpdateProperty`
-3. Change property name (translatable field)
-4. Save property
-5. Verify translation does NOT run
-
-**Expected Results**:
-- ✅ Property is updated successfully
-- ✅ Translation does NOT run
-- ✅ No translation history entries are created
-- ✅ Logs show "Translation skipped - AutoTranslateEnabled: false"
-
----
-
-### Test Case 19: Translation Skipped for Disabled Language
-
-**Objective**: Verify translation does not run for disabled languages
+**Table**: `AccommodationsFacilities_ML`  
+**Fields**: `FacilityName`, `OtherFacilityName`  
+**Time**: 3 minutes
 
 **Steps**:
-1. Enable master switch
-2. Disable Arabic language in PerLanguageSettings
-3. Update property name
-4. Verify translation runs for enabled languages only
+1. ✅ Go to `/Property/PropertyFacilities`
+2. ✅ Add a new facility
+3. ✅ Enter facility name (`FacilityName`)
+4. ✅ Enter other facility name (`OtherFacilityName`) - optional
+5. ✅ Save facility
+6. ✅ Run SQL query to verify:
+
+```sql
+SELECT OwnerId, MultiLanguageId, GroupId, FacilityId, 
+       FacilityName, OtherFacilityName
+FROM BookingWhizz.dbo.AccommodationsFacilities_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY FacilityId, MultiLanguageId;
+```
 
 **Expected Results**:
-- ✅ Translation runs for enabled languages (e.g., Turkish)
-- ✅ Translation does NOT run for disabled languages (e.g., Arabic)
-- ✅ Only enabled languages have entries in ML tables
-- ✅ Translation history shows only enabled languages
-
----
-
-### Test Case 20: Parallel Translation Processing
-
-**Objective**: Verify multiple languages are translated in parallel
-
-**Steps**:
-1. Enable master switch
-2. Enable 5+ languages in PerLanguageSettings
-3. Update property name
-4. Monitor translation process
-
-**Expected Results**:
-- ✅ All enabled languages are translated
-- ✅ Translations happen in parallel (Task.WhenAll)
-- ✅ Translation completes faster than sequential processing
-- ✅ All ML tables are updated correctly
-- ✅ Translation history has entries for all languages
-
-**Performance Check**:
-- Sequential: ~5 seconds per language × 5 languages = 25 seconds
-- Parallel: ~5 seconds total (all languages together)
-
----
-
-### Test Case 21: English Always Included in Translation
-
-**Objective**: Verify English is always included when current language is not English
-
-**Steps**:
-1. Select Arabic language
-2. Update property name
-3. Verify English is also translated
-
-**Expected Results**:
-- ✅ Current language (Arabic) is translated
-- ✅ English (LanguageId = 1) is also translated
-- ✅ Both languages have entries in ML tables
-- ✅ Logs show "Added English (LanguageId 1) to translation targets"
-
----
-
-### Test Case 22: Room Translation
-
-**Objective**: Verify room translation works correctly
-
-**Steps**:
-1. Navigate to `/RoomManagement/CreateRoom`
-2. Enter room name and description
-3. Save room
-4. Verify translation runs
-
-**Expected Results**:
-- ✅ Room is created successfully
+- ✅ Facility is created in main table (`AccommodationsFacilities`)
 - ✅ Translation runs for all enabled languages
-- ✅ `Rooms_ML` table has translated entries
-- ✅ Translation history entries are created
+- ✅ Entries created in `AccommodationsFacilities_ML` for all enabled languages
+- ✅ `FacilityName` is translated
+- ✅ `OtherFacilityName` is translated (if provided)
+
+**Bulk Translation Test**:
+1. ✅ Go to `/Property/PropertyFacilities`
+2. ✅ Click "Bulk Translate Accommodation Facilities" button (if available)
+3. ✅ Verify all facilities are translated
+4. ✅ Run SQL query to verify all facilities have ML entries
 
 ---
 
-### Test Case 23: Rate Plan Translation
+### Test Case 33: RFGroups_ML Table Verification (Room Groups)
 
-**Objective**: Verify rate plan translation works correctly
+**Table**: `RFGroups_ML`  
+**Fields**: `GroupName`, `OtherGroupName`  
+**Time**: 3 minutes
 
 **Steps**:
-1. Navigate to `/RoomManagement/CreateRatePlan`
-2. Enter rate plan name, included, highlight, meal description
-3. Save rate plan
-4. Verify translation runs
+1. ✅ Go to `/RoomManagement/RoomFacilities`
+2. ✅ Add a new room facility group
+3. ✅ Enter group name (`GroupName`)
+4. ✅ Enter other group name (`OtherGroupName`) - optional
+5. ✅ Save group
+6. ✅ Run SQL query to verify:
+
+```sql
+SELECT OwnerId, MultiLanguageId, GroupId, GroupName, OtherGroupName
+FROM BookingWhizz.dbo.RFGroups_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY GroupId, MultiLanguageId;
+```
 
 **Expected Results**:
-- ✅ Rate plan is created successfully
-- ✅ All translatable fields are translated
-- ✅ `RatePlans_ML` table has translated entries
-- ✅ Translation history entries are created
+- ✅ Group is created in main table (`RFGroups`)
+- ✅ Translation runs for all enabled languages
+- ✅ Entries created in `RFGroups_ML` for all enabled languages
+- ✅ `GroupName` is translated
+- ✅ `OtherGroupName` is translated (if provided)
+
+**Bulk Translation Test**:
+1. ✅ Go to `/RoomManagement/RoomFacilities`
+2. ✅ Click "Bulk Translate Room Groups" button
+3. ✅ Verify all groups are translated
+4. ✅ Run SQL query to verify all groups have ML entries
 
 ---
 
-### Test Case 24: Promotion Translation
+### Test Case 34: RoomFacilities_ML Table Verification (Room Facilities)
 
-**Objective**: Verify promotion translation works correctly
+**Table**: `RoomFacilities_ML`  
+**Fields**: `FacilityName`, `OtherFacilityName`  
+**Time**: 3 minutes
 
 **Steps**:
-1. Navigate to `/PromotionManagement/CreatePromotion`
-2. Enter promotion name and description
-3. Save promotion
-4. Verify translation runs
+1. ✅ Go to `/RoomManagement/RoomFacilities`
+2. ✅ Add a new room facility
+3. ✅ Enter facility name (`FacilityName`)
+4. ✅ Enter other facility name (`OtherFacilityName`) - optional
+5. ✅ Save facility
+6. ✅ Run SQL query to verify:
+
+```sql
+SELECT OwnerId, MultiLanguageId, GroupId, FacilityId, 
+       FacilityName, OtherFacilityName
+FROM BookingWhizz.dbo.RoomFacilities_ML 
+WHERE OwnerId = @YourOwnerId
+ORDER BY FacilityId, MultiLanguageId;
+```
 
 **Expected Results**:
-- ✅ Promotion is created successfully
-- ✅ Promotion name and description are translated
-- ✅ `Promotions_ML` table has translated entries
-- ✅ Translation history entries are created
+- ✅ Facility is created in main table (`RoomFacilities`)
+- ✅ Translation runs for all enabled languages
+- ✅ Entries created in `RoomFacilities_ML` for all enabled languages
+- ✅ `FacilityName` is translated
+- ✅ `OtherFacilityName` is translated (if provided)
+
+**Bulk Translation Test**:
+1. ✅ Go to `/RoomManagement/RoomFacilities`
+2. ✅ Click "Bulk Translate Room Facilities" button
+3. ✅ Verify all facilities are translated
+4. ✅ Run SQL query to verify all facilities have ML entries
 
 ---
 
-### Test Case 25: Addon Translation
+### Test Case 35: Complete ML Tables Verification (All Tables)
 
-**Objective**: Verify addon translation works correctly
+**Objective**: Verify all ML tables have correct data for a property
+
+**Time**: 10 minutes
 
 **Steps**:
-1. Navigate to `/Property/CreateAddon`
-2. Enter addon name, descriptions, policies
-3. Save addon
-4. Verify translation runs
+1. ✅ Run all SQL queries for property ID 11481 (or your test property):
+
+```sql
+-- 1. Accommodations_ML
+SELECT 'Accommodations_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.Accommodations_ML 
+WHERE AccommodationId = 11481;
+
+-- 2. Rooms_ML
+SELECT 'Rooms_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.Rooms_ML 
+WHERE AccommodationId = 11481;
+
+-- 3. RatePlans_ML
+SELECT 'RatePlans_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.RatePlans_ML 
+WHERE AccommodationId = 11481;
+
+-- 4. Activities_ML
+SELECT 'Activities_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.Activities_ML 
+WHERE AccommodationId = 11481;
+
+-- 5. Promotions_ML
+SELECT 'Promotions_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.Promotions_ML 
+WHERE AccommodationId = 11481;
+
+-- 6. AFGroups_ML (for owner)
+SELECT 'AFGroups_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.AFGroups_ML 
+WHERE OwnerId = @YourOwnerId;
+
+-- 7. AccommodationsFacilities_ML (for owner)
+SELECT 'AccommodationsFacilities_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.AccommodationsFacilities_ML 
+WHERE OwnerId = @YourOwnerId;
+
+-- 8. RFGroups_ML (for owner)
+SELECT 'RFGroups_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.RFGroups_ML 
+WHERE OwnerId = @YourOwnerId;
+
+-- 9. RoomFacilities_ML (for owner)
+SELECT 'RoomFacilities_ML' AS TableName, COUNT(*) AS RecordCount
+FROM BookingWhizz.dbo.RoomFacilities_ML 
+WHERE OwnerId = @YourOwnerId;
+```
+
+2. ✅ Verify each table has records
+3. ✅ Check that each record has entries for all enabled languages
+4. ✅ Verify English (MultiLanguageId = 1) exists in all tables
 
 **Expected Results**:
-- ✅ Addon is created successfully
-- ✅ All translatable fields are translated
-- ✅ `Activities_ML` table has translated entries
-- ✅ Translation history entries are created
+- ✅ All 9 ML tables have records
+- ✅ Each record has entries for all enabled languages
+- ✅ English (MultiLanguageId = 1) exists in all tables
+- ✅ No missing translations for enabled languages
+- ✅ Data consistency across all tables
 
 ---
 
 ## Translation History Testing
 
-### Test Case 26: Translation History Display
+### Test Case 36: Translation History Display
 
 **Objective**: Verify translation history page displays correctly
 
@@ -622,7 +1280,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 27: Translation History Filtering
+### Test Case 37: Translation History Filtering
 
 **Objective**: Verify filtering works correctly
 
@@ -643,7 +1301,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 28: Translation History Search
+### Test Case 38: Translation History Search
 
 **Objective**: Verify search functionality works
 
@@ -662,7 +1320,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 29: Translation History Pagination
+### Test Case 39: Translation History Pagination
 
 **Objective**: Verify pagination works correctly
 
@@ -683,7 +1341,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 30: Translation History Export (CSV)
+### Test Case 40: Translation History Export (CSV)
 
 **Objective**: Verify CSV export works correctly
 
@@ -703,7 +1361,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 31: Translation History Export (Excel)
+### Test Case 41: Translation History Export (Excel)
 
 **Objective**: Verify Excel export works correctly
 
@@ -723,7 +1381,7 @@ WHERE StatusId = 1;
 
 ---
 
-### Test Case 32: Revert Translation
+### Test Case 42: Revert Translation
 
 **Objective**: Verify revert functionality works correctly
 
@@ -1096,6 +1754,139 @@ For issues or questions regarding testing:
 - **Email**: imfarooq1995@gmail.com
 - **Documentation**: See `AUTOMATIC_TRANSLATION_IMPLEMENTATION.md`
 - **Code Repository**: Check code comments for implementation details
+
+---
+
+---
+
+## Quick Test Checklist
+
+### ✅ Daily Testing Checklist (5 minutes)
+
+Use this checklist for quick daily testing:
+
+- [ ] **Language Selection**: Change language from header dropdown
+- [ ] **Master Switch**: Toggle ON/OFF on UpdateProperty page
+- [ ] **Property Translation**: Update `PropName` field and verify translation
+- [ ] **Translation History**: Check history page shows new entry
+- [ ] **Per-Language Toggle**: Toggle one language ON/OFF on AllPropertiesLanguageSettings page
+
+---
+
+### ✅ Weekly Testing Checklist (15 minutes)
+
+Use this checklist for comprehensive weekly testing:
+
+- [ ] **All High Priority Fields** (11 fields):
+  - [ ] `PropName` - Property name
+  - [ ] `AddonName` - Addon name
+  - [ ] `ShortDesc` - Short description
+  - [ ] `LongDesc` - Long description
+  - [ ] `RoomName` - Room name
+  - [ ] `AptName` - Apartment name
+  - [ ] `RoomDesc` - Room description
+  - [ ] `RatePlanName` - Rate plan name
+  - [ ] `DisplayName` - Display rate plan name
+  - [ ] `PromoName` - Promotion name
+  - [ ] `PromoDesc` - Promotion description
+
+- [ ] **Translation Skipped Scenarios**:
+  - [ ] No field change - translation skipped
+  - [ ] Master switch OFF - translation skipped
+  - [ ] Disabled language - translation skipped
+
+- [ ] **Translation History**:
+  - [ ] View history
+  - [ ] Filter by language
+  - [ ] Export CSV
+
+- [ ] **ML Tables Verification** (Run SQL queries):
+  - [ ] `Accommodations_ML` - Check property translations
+  - [ ] `Rooms_ML` - Check room translations
+  - [ ] `RatePlans_ML` - Check rate plan translations
+  - [ ] `Activities_ML` - Check addon translations
+  - [ ] `Promotions_ML` - Check promotion translations
+  - [ ] `AFGroups_ML` - Check accommodation groups
+  - [ ] `AccommodationsFacilities_ML` - Check accommodation facilities
+  - [ ] `RFGroups_ML` - Check room groups
+  - [ ] `RoomFacilities_ML` - Check room facilities
+
+---
+
+### 📊 API Cost Calculation Guide
+
+**Formula**: `API Calls = Number of Fields × Number of Enabled Languages`
+
+**Examples**:
+
+1. **Property Name Update** (`PropName`):
+   - Fields: 1
+   - Enabled Languages: 3 (English, Arabic, Turkish)
+   - **API Calls**: 1 × 3 = **3 calls**
+
+2. **Addon Creation** (`AddonName`, `ShortDesc`, `LongDesc`):
+   - Fields: 3
+   - Enabled Languages: 3
+   - **API Calls**: 3 × 3 = **9 calls**
+
+3. **Room Creation** (`RoomName`, `RoomDesc`):
+   - Fields: 2
+   - Enabled Languages: 5
+   - **API Calls**: 2 × 5 = **10 calls**
+
+**Cost Optimization Tips**:
+- ✅ Test High Impact fields first (marked with ⭐ High)
+- ✅ Disable unnecessary languages before testing
+- ✅ Use batch updates (multiple fields in one save)
+- ✅ Monitor Translation History for actual API usage
+
+---
+
+### 🎯 Priority Testing Order
+
+**Test in this order for maximum efficiency**:
+
+1. **Priority 1** (Must Test Daily):
+   - `PropName` - Most used field
+   - Master Switch toggle
+   - Language selection
+
+2. **Priority 2** (Test Weekly):
+   - `AddonName`, `ShortDesc`, `LongDesc`
+   - `RoomName`, `RoomDesc`
+   - `RatePlanName`, `DisplayName`
+
+3. **Priority 3** (Test Monthly):
+   - `PromoName`, `PromoDesc`
+   - `KeyComments`, `PetsComments`
+   - Facilities fields
+
+---
+
+### 📝 Test Execution Log Template
+
+| Test # | Test Case | Table/Field | Status | API Calls | Notes |
+|--------|-----------|-------------|--------|-----------|-------|
+| TC-15 | Property Name Translation | `PropName` | ✅ Pass | 3 | - |
+| TC-16 | Addon Translation | `AddonName` | ✅ Pass | 9 | - |
+| TC-17 | Room Translation | `RoomName` | ✅ Pass | 6 | - |
+| TC-26 | Accommodations_ML | `Accommodations_ML` | ✅ Pass | - | SQL verified |
+| TC-27 | Rooms_ML | `Rooms_ML` | ✅ Pass | - | SQL verified |
+| TC-28 | RatePlans_ML | `RatePlans_ML` | ✅ Pass | - | SQL verified |
+| TC-29 | Activities_ML | `Activities_ML` | ✅ Pass | - | SQL verified |
+| TC-30 | Promotions_ML | `Promotions_ML` | ✅ Pass | - | SQL verified |
+| TC-31 | AFGroups_ML | `AFGroups_ML` | ✅ Pass | - | SQL verified |
+| TC-32 | AccommodationsFacilities_ML | `AccommodationsFacilities_ML` | ✅ Pass | - | SQL verified |
+| TC-33 | RFGroups_ML | `RFGroups_ML` | ✅ Pass | - | SQL verified |
+| TC-34 | RoomFacilities_ML | `RoomFacilities_ML` | ✅ Pass | - | SQL verified |
+| TC-35 | Complete ML Tables | All 9 tables | ✅ Pass | - | All verified |
+| ... | ... | ... | ... | ... | ... |
+
+**Status Legend**:
+- ✅ Pass
+- ❌ Fail
+- ⏳ Pending
+- ⚠️ Blocked
 
 ---
 
